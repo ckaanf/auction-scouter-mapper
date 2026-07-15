@@ -20,41 +20,42 @@ function formatPrice(rawPrice) {
 }
 
 // =========================================
-// [Section 2] 초기화 및 DOM 엘리먼트 바인딩
-// =========================================
-document.addEventListener('DOMContentLoaded', () => {
-    // 탭 내비게이션
-    const tabWishlist = document.getElementById('tabWishlist');
-    const tabStorage = document.getElementById('tabStorage');
-    const wishlistContent = document.getElementById('wishlistContent');
-    const storageContent = document.getElementById('storageContent');
+    // [Section 2] 초기화 및 DOM 엘리먼트 바인딩
+    // =========================================
+    document.addEventListener('DOMContentLoaded', () => {
+        // 탭 내비게이션
+        const tabWishlist = document.getElementById('tabWishlist');
+        const tabStorage = document.getElementById('tabStorage');
+        const wishlistContent = document.getElementById('wishlistContent');
+        const storageContent = document.getElementById('storageContent');
 
-    // 보관함 탭 전용 엘리먼트
-    const newFolderNameInput = document.getElementById('newFolderName');
-    const createFolderBtn = document.getElementById('createFolderBtn');
-    const folderList = document.getElementById('folderList');
+        // 보관함 탭 전용 엘리먼트
+        const newFolderNameInput = document.getElementById('newFolderName');
+        const createFolderBtn = document.getElementById('createFolderBtn');
+        const folderList = document.getElementById('folderList');
 
-    // 역방향 불러오기 관련 엘리먼트
-    const myFromSiteBtn = document.getElementById('myFromSiteBtn');
-    const importFromSiteBtn = document.getElementById('importFromSiteBtn');
-    const importedListWrapper = document.getElementById('importedListWrapper');
-    const importedItemsContainer = document.getElementById('importedItems');
-    const targetFolderSelect = document.getElementById('targetFolderSelect');
-    const submitImportBtn = document.getElementById('submitImportBtn');
+        // 역방향 불러오기 관련 엘리먼트
+        const myFromSiteBtn = document.getElementById('myFromSiteBtn');
+        const importFromSiteBtn = document.getElementById('importFromSiteBtn');
+        const importedListWrapper = document.getElementById('importedListWrapper');
+        const importedItemsContainer = document.getElementById('importedItems');
+        const targetFolderSelect = document.getElementById('targetFolderSelect');
+        const submitImportBtn = document.getElementById('submitImportBtn');
+        const selectAllImported = document.getElementById('selectAllImported'); // 전체 선택 엘리먼트 추가
 
-    // 찜 목록 탭의 폴더 수납 컨트롤
-    const wishlistTargetFolderSelect = document.getElementById('wishlistTargetFolderSelect');
-    const wishlistToFolderBtn = document.getElementById('wishlistToFolderBtn');
+        // 찜 목록 탭의 폴더 수납 컨트롤
+        const wishlistTargetFolderSelect = document.getElementById('wishlistTargetFolderSelect');
+        const wishlistToFolderBtn = document.getElementById('wishlistToFolderBtn');
 
-    // 찜 목록 관리 엘리먼트
-    const itemList = document.getElementById('itemList');
-    const selectAllCheckbox = document.getElementById('selectAll');
-    const exportBtn = document.getElementById('exportBtn');
-    const clearAllBtn = document.getElementById('clearAllBtn');
+        // 찜 목록 관리 엘리먼트
+        const itemList = document.getElementById('itemList');
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const exportBtn = document.getElementById('exportBtn');
+        const clearAllBtn = document.getElementById('clearAllBtn');
 
-    let auctionItems = [];
-    let savedFolders = []; 
-    let importedItemsTemp = []; 
+        let auctionItems = [];
+        let savedFolders = []; 
+        let importedItemsTemp = [];
 
     // =========================================
     // [Section 3] 상단 탭 내비게이션 전환 로직
@@ -370,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // =========================================
+ // =========================================
     // [Section 7] 역방향 불러오기 (사이트 -> 익스텐션 보관함)
     // =========================================
     importFromSiteBtn.addEventListener('click', async () => {
@@ -458,7 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const VALID_SLOTS = [
                 "반지", "반지1", "반지2", "반지3", "반지4",
                 "펜던트", "펜던트1", "펜던트2", 
-                "무기", "보조무기","포스실드", "엠블렘", "기계 심장",
+                "무기", "보조무기", "포스실드", "엠블렘", "기계 심장",
                 "벨트", "모자", "얼굴장식", "눈장식", 
                 "상의", "하의", "신발", "귀고리", 
                 "어깨장식", "장갑", "망토", "배지", "훈장"
@@ -477,8 +478,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // 전체 선택/해제 이벤트 리스너 추가
+    selectAllImported.addEventListener('change', (e) => {
+        const checkboxes = document.querySelectorAll('.imported-checkbox');
+        checkboxes.forEach(cb => cb.checked = e.target.checked);
+    });
+
     function renderImportedItems() {
         importedItemsContainer.innerHTML = '';
+        selectAllImported.checked = true; // 리스트를 새로 열 때 기본으로 전체 선택 상태 체크
+
         importedItemsTemp.forEach((item, index) => {
             const div = document.createElement('div');
             div.className = 'imported-item';

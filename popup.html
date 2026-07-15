@@ -245,11 +245,14 @@
 
     <div id="storageContent" class="tab-content">
         <div class="import-box">
-            <button id="myFromSiteBtn" class="import-btn-large">🔄 환산 사이트 내 장비 불러오기</button>
+            <button id="myFromSiteBtn" class="import-btn-large" style="background-color: #2b90d9; margin-top: 4px;">🔄 현재 환산 사이트 내 장비 불러오기</button>
             <button id="importFromSiteBtn" class="import-btn-large">🔄 현재 환산 사이트 보관함 불러오기</button>
             
             <div id="importedListWrapper" class="imported-list-wrapper">
-                <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: #333;">가져온 장비 선택</div>
+                <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: #333; display: flex; justify-content: space-between; align-items: center;">
+                    <span>가져온 장비 선택</span>
+                    <label style="font-weight: normal; cursor: pointer;"><input type="checkbox" id="selectAllImported" checked> 전체 선택</label>
+                </div>
                 <div id="importedItems" class="imported-items">
                     </div>
                 <div class="import-control">
