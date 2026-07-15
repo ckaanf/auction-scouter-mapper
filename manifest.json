@@ -13,22 +13,22 @@
     "*://*.maplescouter.com/*"
   ],
   "background": {
-    "service_worker": "/src/background.js"
+    "service_worker": "src/background.js"
   },
   "content_scripts": [
     {
       "matches": ["*://*.nexon.com/*"],
-      "js": ["/src/content.js"],
+      "js": ["src/content.js"],
       "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["/src/inject.js"],
+      "resources": ["src/inject.js"],
       "matches": ["*://*.nexon.com/*"]
     }
   ],
   "action": {
-    "default_popup": "/src/popup.html"
+    "default_popup": "src/popup.html"
   }
 }

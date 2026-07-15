@@ -1,7 +1,7 @@
 console.log('[Extension] 콘텐츠 스크립트 실행됨');
 
 const script = document.createElement('script');
-script.src = chrome.runtime.getURL('inject.js');
+script.src = chrome.runtime.getURL('src/inject.js');
 script.onload = function () {
     this.remove();
 };
