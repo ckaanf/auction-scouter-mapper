@@ -19,6 +19,81 @@ function formatPrice(rawPrice) {
     return result.join(' ') + ' 메소';
 }
 
+// [개선] 모달을 이용한 입력창 제어 함수
+function showModal(message, callback) {
+    const modal = document.getElementById('charNameModal');
+    const msg = document.getElementById('modalMessage');
+    const input = document.getElementById('modalInput');
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    
+    msg.textContent = message;
+    modal.style.display = 'flex';
+    input.focus();
+
+    input.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+            confirmBtn.click();
+        }
+    };
+
+    document.getElementById('modalConfirmBtn').onclick = () => {
+        const val = input.value.trim();
+        if (!val) {
+            alert('캐릭터 이름을 입력해주세요!'); // 이것조차 모달로 바꾸려면 2단계 모달 필요
+            return;
+        }
+        modal.style.display = 'none';
+        input.value = '';
+        callback(val);
+    };
+
+    document.getElementById('modalCancelBtn').onclick = () => {
+        modal.style.display = 'none';
+        input.value = '';
+        callback(null); // 취소했음을 알림
+    };
+
+    document.getElementById('charNameModal').onclick = (e) => {
+        if (e.target.id === 'charNameModal') { // 모달 배경을 눌렀을 때만 닫기
+            document.getElementById('charNameModal').style.display = 'none';
+        }
+    };
+}
+
+async function verifyAndExport(charName, mappedData, mode) {
+    try {
+        // 1. 캐릭터 정보 API 조회
+        const url = `https://api.maplescouter.com/api/id?name=${encodeURIComponent(charName)}&preset=00000&region=kms`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        // API 결과 확인 (캐릭터 존재 여부)
+        if (!data || data.error) {
+            alert('캐릭터 정보를 찾을 수 없습니다. 이름을 다시 확인해주세요.');
+            return;
+        }
+
+        // 2. 캐릭터 정보가 맞는지 최종 확인 모달 띄우기
+        // (필요 시 기존 showModal을 재활용하거나 확인창용 모달 별도 구성)
+        const confirmMsg = `조회된 캐릭터: ${data.name} (Lv.${data.level})\n이 캐릭터의 데이터로 이동할까요?`;
+        
+        if (confirm(confirmMsg)) {
+            // 3. 기존 이동 로직 수행
+            const targetUrl = `https://maplescouter.com/ko/item?name=${encodeURIComponent(data.name)}&preset=00000`;
+            chrome.runtime.sendMessage({
+                action: 'OPEN_AND_INJECT',
+                url: targetUrl,
+                items: mappedData,
+                folderName: mode === 'SWAP' ? '데이터' : '',
+                mode: mode
+            });
+            window.close();
+        }
+    } catch (e) {
+        alert('캐릭터 조회 중 오류가 발생했습니다.');
+    }
+}
+
 // =========================================
     // [Section 2] 초기화 및 DOM 엘리먼트 바인딩
     // =========================================
@@ -629,30 +704,29 @@ function formatPrice(rawPrice) {
             const confirmRedirect = confirm('현재 활성화된 탭이 메이플 환산기(maplescouter.com) 사이트가 아닙니다.\n캐릭터 이름을 입력하고 새 탭으로 환산기를 열어 자동으로 아이템을 추가하시겠습니까?');
             
             if (confirmRedirect) {
-                const charName = prompt('이동할 캐릭터 이름을 입력해 주세요:');
-                if (charName && charName.trim()) {
-                    const targetUrl = `https://maplescouter.com/ko/item?name=${encodeURIComponent(charName.trim())}&preset=00000`;
-                    
-                    chrome.runtime.sendMessage({
-                        action: 'OPEN_AND_INJECT',
-                        url: targetUrl,
-                        items: mappedData,
-                        folderName: '',
-                        mode: 'EXPORT'
-                    }).catch(() => {}); 
-                    
-                    window.close(); 
-                    return;
-                } else {
-                    alert('캐릭터명이 입력되지 않아 아이템 추가 작업을 취소합니다.');
-                    return;
-                }
+                showModal('이동할 캐릭터 이름을 입력해주세요:', (charName) => {
+                    if (charName && charName.trim()) {
+                        const targetUrl = `https://maplescouter.com/ko/item?name=${encodeURIComponent(charName.trim())}&preset=00000`;
+                        chrome.runtime.sendMessage({
+                            action: 'OPEN_AND_INJECT',
+                            url: targetUrl,
+                            items: mappedData,
+                            folderName: '',
+                            mode: 'EXPORT'
+                        }).catch(() => {}); 
+                        window.close(); 
+                    } else {
+                        // 이름을 입력하지 않고 확인을 눌렀거나, 취소한 경우
+                        alert('캐릭터명이 입력되지 않아 아이템 추가 작업을 취소합니다.');
+                    }
+                });
             } else {
+                // confirm에서 [취소]를 누른 경우
                 alert('아이템 추가 작업이 취소되었습니다. 환산 주스텟 - 아이템메이커 화면에서 다시 실행해 주세요.');
-                return;
             }
+            return; // 탭 체크 완료 후 함수 종료
         }
-
+        
         chrome.scripting.executeScript({
             target: { tabId: tab.id },
             func: (itemsToInject) => {
@@ -753,29 +827,26 @@ function formatPrice(rawPrice) {
             const confirmRedirect = confirm('현재 활성화된 탭이 메이플 환산기(maplescouter.com) 사이트가 아닙니다.\n새 탭으로 환산기를 열어 보관함을 교체하시겠습니까?');
             
             if (confirmRedirect) {
-                const charName = prompt('이동할 캐릭터 이름을 입력해 주세요:');
-                if (charName && charName.trim()) {
-                    const targetUrl = `https://maplescouter.com/ko/item?name=${encodeURIComponent(charName.trim())}&preset=00000`;
-                    
-                    // SWAP 모드로 전달하여, 새 탭이 열린 뒤에 덮어쓰기 컨펌을 띄우도록 background.js에 위임합니다.
-                    chrome.runtime.sendMessage({
-                        action: 'OPEN_AND_INJECT',
-                        url: targetUrl,
-                        items: targetFolder.items,
-                        folderName: targetFolder.name,
-                        mode: 'SWAP'
-                    }).catch(() => {});
-
-                    window.close(); 
-                    return;
-                } else {
-                    alert('캐릭터명이 입력되지 않아 작업을 취소합니다.');
-                    return;
-                }
+                showModal('이동할 캐릭터 이름을 입력해 주세요:', (charName) => {
+                    if (charName && charName.trim()) {
+                        const targetUrl = `https://maplescouter.com/ko/item?name=${encodeURIComponent(charName.trim())}&preset=00000`;
+                        
+                        chrome.runtime.sendMessage({
+                            action: 'OPEN_AND_INJECT',
+                            url: targetUrl,
+                            items: targetFolder.items,
+                            folderName: targetFolder.name,
+                            mode: 'SWAP'
+                        }).catch(() => {});
+                        window.close(); 
+                    } else {
+                        alert('캐릭터명이 입력되지 않아 작업을 취소합니다.');
+                    }
+                });
             } else {
                 alert('작업이 취소되었습니다. 환산 주스텟 - 아이템메이커 화면에서 직접 교체해 주세요.');
-                return;
             }
+            return;
         }
 
         // 2. 이미 환산 사이트에 서 있는 경우에만 곧바로 덮어쓰기 컨펌을 띄웁니다.
