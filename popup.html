@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { width: 350px; padding: 15px; font-family: 'Malgun Gothic', sans-serif; margin: 0; }
+        h3 { margin-top: 0; margin-bottom: 15px; font-size: 16px; text-align: center; }
+        .header-action { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;}
+        .item-list { max-height: 280px; overflow-y: auto; margin-bottom: 15px; }
+        .item { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px dashed #f0f0f0; }
+        .item:last-child { border-bottom: none; }
+        
+        /* 찜 해제된 아이템 스타일 */
+        .item.unwished { opacity: 0.5; background-color: #fcfcfc; }
+        
+        .item img { width: 32px; height: 32px; margin: 0 10px; background-color: #f8f9fa; border-radius: 4px; }
+        .item-info { flex-grow: 1; display: flex; flex-direction: column; }
+        .item-name { font-size: 13px; }
+        .unwished-badge { font-size: 10px; color: #ff4d4f; margin-top: 2px; font-weight: bold; }
+        
+        button.export-btn { width: 100%; padding: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button.export-btn:hover { background-color: #45a049; }
+        
+        /* 개별 삭제 버튼 */
+        button.delete-btn { padding: 4px 8px; background-color: transparent; color: #888; border: 1px solid #ddd; border-radius: 3px; cursor: pointer; font-size: 11px; margin-left: 5px; }
+        button.delete-btn:hover { background-color: #ff4d4f; color: white; border-color: #ff4d4f; }
+        
+        .empty-msg { text-align: center; color: #888; font-size: 13px; padding: 20px 0; }
+    </style>
+</head>
+<body>
+    <h3>경매장 찜 목록 보관소</h3>
+    
+    <div class="header-action">
+        <label><input type="checkbox" id="selectAll"> 전체 선택</label>
+        <button id="clearAllBtn" class="delete-btn">목록 비우기</button>
+    </div>
+    
+    <div id="itemList" class="item-list">
+        </div>
+    
+    <button id="exportBtn" class="export-btn">환산 사이트로 추가하기</button>
+    <script src="mapper.js"></script>
+    <script src="popup.js"></script>
+</body>
+</html>
