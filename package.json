@@ -1,0 +1,31 @@
+{
+  "name": "as",
+  "version": "1.0.0",
+  "description": "",
+  "main": "background.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ckaanf/auction-scouter-mapper.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ckaanf/auction-scouter-mapper/issues"
+  },
+  "homepage": "https://github.com/ckaanf/auction-scouter-mapper#readme",
+  "devDependencies": {
+    "jest": "^27.5.1",
+    "jest-chrome": "^0.8.0"
+  },
+  "jest": {
+    "roots": ["<rootDir>/test"]
+  }
+}

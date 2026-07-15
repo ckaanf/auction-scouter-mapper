@@ -142,3 +142,7 @@ function mapToCalcFormat(auctionItem) {
         isEquipped: false
     };
 }
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { mapToCalcFormat };
+}
