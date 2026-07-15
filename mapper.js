@@ -3,12 +3,23 @@ function mapToCalcFormat(auctionItem) {
     const upgrade = t.upgradeInfo || {};
     const job = t.reqJob || "";
 
-    // 1. 직업별 유효 스탯 필터링
+    // 1. 직업별 유효 스탯 필터링 조건 보강 (데몬 직업군 및 하위 전사 직업 대응)
     const getValidKeysForJob = (jobName) => {
-        if (jobName.includes("전사")) return ["str", "dex", "attack_power", "all_stat"];
-        if (jobName.includes("마법사")) return ["int", "luk", "magic_power", "all_stat"];
-        if (jobName.includes("궁수")) return ["dex", "str", "attack_power", "all_stat"];
-        if (jobName.includes("도적")) return ["luk", "dex", "str", "attack_power", "all_stat"];
+        if (jobName.includes("전사") || jobName.includes("데몬") || jobName.includes("아란") || jobName.includes("카이저") || jobName.includes("미하일")) {
+            return ["str", "dex", "max_hp", "attack_power", "all_stat"]; // 데몬어벤져 대응을 위해 max_hp 포함
+        }
+        if (jobName.includes("마법사") || jobName.includes("루미너스") || jobName.includes("일리움")) {
+            return ["int", "luk", "magic_power", "all_stat"];
+        }
+        if (jobName.includes("궁수") || jobName.includes("메르세데스") || jobName.includes("패스파인더")) {
+            return ["dex", "str", "attack_power", "all_stat"];
+        }
+        if (jobName.includes("도적") || jobName.includes("팬텀") || jobName.includes("칼리")) {
+            return ["luk", "dex", "str", "attack_power", "all_stat"];
+        }
+        if (jobName.includes("해적") || jobName.includes("은월") || jobName.includes("아크")) {
+            return ["str", "dex", "attack_power", "all_stat"];
+        }
         return ["str", "dex", "int", "luk", "attack_power", "magic_power", "all_stat"];
     };
     const validKeys = getValidKeysForJob(job);
@@ -17,20 +28,20 @@ function mapToCalcFormat(auctionItem) {
     // 2. 내부 스탯 옵션 순서 보장 생성기
     const createStatObj = (s, includeLevel = false) => {
         const obj = {};
-        
+
         // 요청하신 JSON의 내부 옵션 순서와 100% 일치
         const orderedKeys = [
-            "str", "dex", "int", "luk", "max_hp", "max_mp", 
-            "attack_power", "magic_power", "armor", "speed", 
-            "jump", "damage", "boss_damage", "ignore_monster_armor", 
+            "str", "dex", "int", "luk", "max_hp", "max_mp",
+            "attack_power", "magic_power", "armor", "speed",
+            "jump", "damage", "boss_damage", "ignore_monster_armor",
             "all_stat", "max_hp_rate", "max_mp_rate"
         ];
-        
-        const apiMap = { 
-            str: 'str', dex: 'dex', int: 'int', luk: 'luk', max_hp: 'mhp', max_mp: 'mmp', 
-            attack_power: 'pad', magic_power: 'mad', armor: 'pdd', speed: 'speed', jump: 'jump', 
-            damage: 'dam', boss_damage: 'bdr', ignore_monster_armor: 'imdr', all_stat: 'all', 
-            max_hp_rate: 'hpr', max_mp_rate: 'mpr' 
+
+        const apiMap = {
+            str: 'str', dex: 'dex', int: 'int', luk: 'luk', max_hp: 'mhp', max_mp: 'mmp',
+            attack_power: 'pad', magic_power: 'mad', armor: 'pdd', speed: 'speed', jump: 'jump',
+            damage: 'dam', boss_damage: 'bdr', ignore_monster_armor: 'imdr', all_stat: 'all',
+            max_hp_rate: 'hpr', max_mp_rate: 'mpr'
         };
 
         orderedKeys.forEach(key => {
@@ -41,7 +52,7 @@ function mapToCalcFormat(auctionItem) {
             }
             obj[key] = String(val);
         });
-        
+
         obj["base_equipment_level"] = includeLevel ? Number(t.reqLevel || 0) : 0;
         obj["equipment_level_decrease"] = Number(s?.reduceReq || 0);
         return obj;
@@ -65,10 +76,34 @@ function mapToCalcFormat(auctionItem) {
     const msPart = String(now.getMilliseconds()).padStart(3, '0');
     const characterName = `ItemMaker${datePart}_${timePart}${msPart.slice(0, 3)}`;
 
-    // 5. 반환 객체 (JSON 키 순서를 그대로 적용)
+    // 5. slot 및 part 예외 리매핑 (포스실드, 소울실드 등 전용 보조무기를 '보조무기' 슬롯으로 통일)
+    const rawSlot = t.categories[1] || t.categories[0] || "기타";
+    let mappedSlot = rawSlot;
+    let mappedPart = rawSlot;
+
+    if (["포스실드", "소울실드", "마법화살", "보조무기"].includes(rawSlot)) {
+        mappedSlot = "보조무기";
+        mappedPart = rawSlot; // [수정] 하드코딩을 제거하고 원래의 장비 서브 카테고리명을 그대로 동적으로 유지합니다.
+    }
+
+    // 6. class_group 세분화 매핑
+    let mappedClassGroup = "도적"; // 기본 디폴트
+    if (job.includes("전사") || job.includes("데몬") || job.includes("아란") || job.includes("카이저") || job.includes("미하일")) {
+        mappedClassGroup = "전사";
+    } else if (job.includes("마법사") || job.includes("루미너스") || job.includes("일리움")) {
+        mappedClassGroup = "마법사";
+    } else if (job.includes("궁수") || job.includes("메르세데스") || job.includes("패스파인더")) {
+        mappedClassGroup = "궁수";
+    } else if (job.includes("도적") || job.includes("팬텀") || job.includes("칼리")) {
+        mappedClassGroup = "도적";
+    } else if (job.includes("해적") || job.includes("은월") || job.includes("아크")) {
+        mappedClassGroup = "해적";
+    }
+
+    // 7. 반환 객체 (JSON 키 순서를 그대로 적용)
     return {
-        slot: t.categories[1] || t.categories[0] || "기타",
-        part: t.categories[1] || t.categories[0] || "기타",
+        slot: mappedSlot,
+        part: mappedPart,
         name: t.itemName,
         iconUrl: t.itemIcon?.fallBackUrl || "",
         starforce: String(t.starforce || 0),
@@ -92,7 +127,7 @@ function mapToCalcFormat(auctionItem) {
             max_mp: "0",
             attack_power: "0",
             magic_power: "0",
-            exceptional_upgrade: 0 // JSON 예시와 동일하게 숫자 0으로 할당
+            exceptional_upgrade: 0
         },
         hasExceptional: false,
         soul_name: t.soulWeapon?.name || null,
@@ -100,7 +135,7 @@ function mapToCalcFormat(auctionItem) {
         ring_level: t.seedRingLevel || 0,
         itemScore: "0",
         character_name: characterName,
-        class_group: job || "도적",
+        class_group: mappedClassGroup,
         cuttable_count: "255",
         title: "",
         bookMark: true,
