@@ -3,10 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        body { width: 350px; padding: 15px; font-family: 'Malgun Gothic', sans-serif; margin: 0; }
-        h3 { margin-top: 0; margin-bottom: 15px; font-size: 16px; text-align: center; }
+        body { width: 350px; padding: 15px; font-family: 'Malgun Gothic', sans-serif; margin: 0; background-color: #fcfcfc; }
+        h3 { margin-top: 0; margin-bottom: 15px; font-size: 16px; text-align: center; color: #222; }
+        
+        /* 탭 내비게이션 스타일 */
+        .tab-container { display: flex; border-bottom: 2px solid #e8e8e8; margin-bottom: 15px; gap: 4px; }
+        .tab-btn { 
+            flex: 1; 
+            padding: 8px 0; 
+            background: none; 
+            border: none; 
+            font-size: 13px; 
+            font-weight: bold; 
+            color: #888; 
+            cursor: pointer; 
+            text-align: center;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s ease;
+        }
+        .tab-btn.active { 
+            color: #4CAF50; 
+            border-bottom: 2px solid #4CAF50; 
+        }
+        .tab-btn:hover:not(.active) {
+            color: #555;
+        }
+        
+        /* 탭 콘텐츠 기본 상태 */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* 기존 헤더 액션 유지 */
         .header-action { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;}
-        .item-list { max-height: 280px; overflow-y: auto; margin-bottom: 15px; }
+        .item-list { max-height: 250px; overflow-y: auto; margin-bottom: 15px; }
         .item { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px dashed #f0f0f0; }
         .item:last-child { border-bottom: none; }
         
@@ -43,28 +73,204 @@
             border: 1px solid #d9d9d9; 
         }
         
-        button.export-btn { width: 100%; padding: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        /* 기본 주입 버튼 */
+        button.export-btn { width: 100%; padding: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 8px; }
         button.export-btn:hover { background-color: #45a049; }
         
-        /* 개별 삭제 버튼 */
+        /* 개별 삭제/기능 버튼 */
         button.delete-btn { padding: 4px 8px; background-color: transparent; color: #888; border: 1px solid #ddd; border-radius: 3px; cursor: pointer; font-size: 11px; margin-left: 5px; }
         button.delete-btn:hover { background-color: #ff4d4f; color: white; border-color: #ff4d4f; }
         
         .empty-msg { text-align: center; color: #888; font-size: 13px; padding: 20px 0; }
+
+        /* =========================================
+           2번 탭: 환산 보관함 전용 스타일
+           ========================================= */
+        .action-bar { display: flex; gap: 6px; margin-bottom: 12px; }
+        .action-bar input[type="text"] { 
+            flex-grow: 1; 
+            padding: 6px 10px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+            font-size: 12px; 
+        }
+        .action-bar button { 
+            padding: 6px 12px; 
+            background-color: #4CAF50; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 12px; 
+            font-weight: bold; 
+        }
+        .action-bar button:hover { background-color: #45a049; }
+
+        /* 역방향 불러오기 섹션 스타일 */
+        .import-box {
+            background-color: #eef7ee;
+            border: 1px solid #c8ecc8;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+        .import-btn-large {
+            width: 100%;
+            padding: 8px;
+            background-color: #2db43d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .import-btn-large:hover { background-color: #259632; }
+
+        /* 불러온 아이템 임시 대기 리스트 */
+        .imported-list-wrapper {
+            display: none; 
+            margin-top: 8px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 8px;
+        }
+        .imported-list-wrapper.active { display: block; }
+        .imported-items {
+            max-height: 150px;
+            overflow-y: auto;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .imported-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 0;
+            font-size: 11px;
+            color: #444;
+        }
+        .imported-item img { width: 16px; height: 16px; border-radius: 2px; }
+
+        /* 임시 아이템 수납 제어기 스타일 통일 */
+        .import-control {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .import-control select {
+            flex-grow: 1;
+            padding: 5px;
+            font-size: 11px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            background: white;
+        }
+        .import-control button {
+            padding: 5px 8px;
+            font-size: 11px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* 폴더 및 보관함 트리 구조 */
+        .folder-list { max-height: 280px; overflow-y: auto; margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; }
+        .folder-card { 
+            border: 1px solid #e8e8e8; 
+            border-radius: 6px; 
+            background-color: white; 
+            overflow: hidden; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+        .folder-header { 
+            padding: 8px 12px; 
+            background-color: #fcfcfc; 
+            border-bottom: 1px solid #f0f0f0; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            cursor: pointer;
+            user-select: none;
+        }
+        .folder-title { font-size: 13px; font-weight: bold; color: #444; display: flex; align-items: center; gap: 6px; }
+        .folder-actions { display: flex; gap: 4px; }
+        
+        /* 폴더용 미니 액션 버튼 */
+        .btn-mini { padding: 3px 6px; font-size: 10px; border: 1px solid #ddd; background: white; border-radius: 3px; cursor: pointer; color: #666; }
+        .btn-mini.btn-active { border-color: #4CAF50; color: #4CAF50; font-weight: bold; }
+        .btn-mini.btn-active:hover { background-color: #eaf6ec; }
+        .btn-mini.btn-del:hover { background-color: #fff1f0; color: #ff4d4f; border-color: #ffccc7; }
+
+        /* 폴더 내부 아이템 목록 */
+        .folder-items { padding: 4px 12px; background-color: #fff; max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; }
+        .folder-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dashed #f5f5f5; font-size: 11px; color: #555; }
+        .folder-item:last-child { border-bottom: none; }
+        .folder-item-info { display: flex; align-items: center; gap: 6px; }
+        .folder-item-info img { width: 18px; height: 18px; background-color: #fcfcfc; border-radius: 2px; }
     </style>
 </head>
 <body>
     <h3>경매장 찜 목록 보관소</h3>
     
-    <div class="header-action">
-        <label><input type="checkbox" id="selectAll"> 전체 선택</label>
-        <button id="clearAllBtn" class="delete-btn">목록 비우기</button>
+    <div class="tab-container">
+        <button class="tab-btn active" id="tabWishlist">경매장 찜 목록</button>
+        <button class="tab-btn" id="tabStorage">환산 메이커 보관함</button>
     </div>
-    
-    <div id="itemList" class="item-list">
+
+    <div id="wishlistContent" class="tab-content active">
+        <div class="header-action">
+            <label><input type="checkbox" id="selectAll"> 전체 선택</label>
+            <button id="clearAllBtn" class="delete-btn">목록 비우기</button>
         </div>
-    
-    <button id="exportBtn" class="export-btn">환산 사이트로 추가하기</button>
+        
+        <div id="itemList" class="item-list">
+            </div>
+        
+        <button id="exportBtn" class="export-btn">환산 사이트로 바로 추가하기</button>
+
+        <div class="import-control" style="background: #f4fbf4; padding: 8px; border: 1px solid #d8ebd8; border-radius: 4px;">
+            <select id="wishlistTargetFolderSelect">
+                <option value="">-- 보관함 폴더 선택 --</option>
+                <option value="NEW_FOLDER">🆕 [새 폴더 만들어 이동...]</option>
+            </select>
+            <button id="wishlistToFolderBtn">폴더에 보관하기</button>
+        </div>
+    </div>
+
+    <div id="storageContent" class="tab-content">
+        <div class="import-box">
+            <button id="myFromSiteBtn" class="import-btn-large">🔄 환산 사이트 내 장비 불러오기</button>
+            <button id="importFromSiteBtn" class="import-btn-large">🔄 현재 환산 사이트 보관함 불러오기</button>
+            
+            <div id="importedListWrapper" class="imported-list-wrapper">
+                <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: #333;">가져온 장비 선택</div>
+                <div id="importedItems" class="imported-items">
+                    </div>
+                <div class="import-control">
+                    <select id="targetFolderSelect">
+                        <option value="">-- 보관할 폴더 선택 --</option>
+                        <option value="NEW_FOLDER">🆕 [새 폴더 만들어 이동...]</option>
+                    </select>
+                    <button id="submitImportBtn">이동 실행</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <input type="text" id="newFolderName" placeholder="새 폴더 이름 입력 (예: 본캐 섀도어)">
+            <button id="createFolderBtn">폴더 추가</button>
+        </div>
+
+        <div id="folderList" class="folder-list">
+            </div>
+    </div>
+
     <script src="mapper.js"></script>
     <script src="popup.js"></script>
 </body>
