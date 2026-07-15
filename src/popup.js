@@ -19,13 +19,12 @@ function formatPrice(rawPrice) {
     return result.join(' ') + ' 메소';
 }
 
-// [개선] 모달을 이용한 입력창 제어 함수
 function showModal(message, callback) {
     const modal = document.getElementById('charNameModal');
     const msg = document.getElementById('modalMessage');
     const input = document.getElementById('modalInput');
     const confirmBtn = document.getElementById('modalConfirmBtn');
-    
+
     msg.textContent = message;
     modal.style.display = 'flex';
     input.focus();
@@ -39,7 +38,7 @@ function showModal(message, callback) {
     document.getElementById('modalConfirmBtn').onclick = () => {
         const val = input.value.trim();
         if (!val) {
-            alert('캐릭터 이름을 입력해주세요!'); // 이것조차 모달로 바꾸려면 2단계 모달 필요
+            alert('캐릭터 이름을 입력해주세요!');
             return;
         }
         modal.style.display = 'none';
@@ -50,16 +49,16 @@ function showModal(message, callback) {
     document.getElementById('modalCancelBtn').onclick = () => {
         modal.style.display = 'none';
         input.value = '';
-        callback(null); // 취소했음을 알림
+        callback(null);
     };
 
     document.getElementById('charNameModal').onclick = (e) => {
-        if (e.target.id === 'charNameModal') { // 모달 배경을 눌렀을 때만 닫기
+        if (e.target.id === 'charNameModal') {
             document.getElementById('charNameModal').style.display = 'none';
         }
     };
 }
-
+// 추후 개발 예정
 async function verifyAndExport(charName, mappedData, mode) {
     try {
         // 1. 캐릭터 정보 API 조회
@@ -76,7 +75,7 @@ async function verifyAndExport(charName, mappedData, mode) {
         // 2. 캐릭터 정보가 맞는지 최종 확인 모달 띄우기
         // (필요 시 기존 showModal을 재활용하거나 확인창용 모달 별도 구성)
         const confirmMsg = `조회된 캐릭터: ${data.name} (Lv.${data.level})\n이 캐릭터의 데이터로 이동할까요?`;
-        
+
         if (confirm(confirmMsg)) {
             // 3. 기존 이동 로직 수행
             const targetUrl = `https://maplescouter.com/ko/item?name=${encodeURIComponent(data.name)}&preset=00000`;
@@ -95,42 +94,42 @@ async function verifyAndExport(charName, mappedData, mode) {
 }
 
 // =========================================
-    // [Section 2] 초기화 및 DOM 엘리먼트 바인딩
-    // =========================================
-    document.addEventListener('DOMContentLoaded', () => {
-        // 탭 내비게이션
-        const tabWishlist = document.getElementById('tabWishlist');
-        const tabStorage = document.getElementById('tabStorage');
-        const wishlistContent = document.getElementById('wishlistContent');
-        const storageContent = document.getElementById('storageContent');
+// [Section 2] 초기화 및 DOM 엘리먼트 바인딩
+// =========================================
+document.addEventListener('DOMContentLoaded', () => {
+    // 탭 내비게이션
+    const tabWishlist = document.getElementById('tabWishlist');
+    const tabStorage = document.getElementById('tabStorage');
+    const wishlistContent = document.getElementById('wishlistContent');
+    const storageContent = document.getElementById('storageContent');
 
-        // 보관함 탭 전용 엘리먼트
-        const newFolderNameInput = document.getElementById('newFolderName');
-        const createFolderBtn = document.getElementById('createFolderBtn');
-        const folderList = document.getElementById('folderList');
+    // 보관함 탭 전용 엘리먼트
+    const newFolderNameInput = document.getElementById('newFolderName');
+    const createFolderBtn = document.getElementById('createFolderBtn');
+    const folderList = document.getElementById('folderList');
 
-        // 역방향 불러오기 관련 엘리먼트
-        const myFromSiteBtn = document.getElementById('myFromSiteBtn');
-        const importFromSiteBtn = document.getElementById('importFromSiteBtn');
-        const importedListWrapper = document.getElementById('importedListWrapper');
-        const importedItemsContainer = document.getElementById('importedItems');
-        const targetFolderSelect = document.getElementById('targetFolderSelect');
-        const submitImportBtn = document.getElementById('submitImportBtn');
-        const selectAllImported = document.getElementById('selectAllImported'); // 전체 선택 엘리먼트 추가
+    // 역방향 불러오기 관련 엘리먼트
+    const myFromSiteBtn = document.getElementById('myFromSiteBtn');
+    const importFromSiteBtn = document.getElementById('importFromSiteBtn');
+    const importedListWrapper = document.getElementById('importedListWrapper');
+    const importedItemsContainer = document.getElementById('importedItems');
+    const targetFolderSelect = document.getElementById('targetFolderSelect');
+    const submitImportBtn = document.getElementById('submitImportBtn');
+    const selectAllImported = document.getElementById('selectAllImported'); // 전체 선택 엘리먼트 추가
 
-        // 찜 목록 탭의 폴더 수납 컨트롤
-        const wishlistTargetFolderSelect = document.getElementById('wishlistTargetFolderSelect');
-        const wishlistToFolderBtn = document.getElementById('wishlistToFolderBtn');
+    // 찜 목록 탭의 폴더 수납 컨트롤
+    const wishlistTargetFolderSelect = document.getElementById('wishlistTargetFolderSelect');
+    const wishlistToFolderBtn = document.getElementById('wishlistToFolderBtn');
 
-        // 찜 목록 관리 엘리먼트
-        const itemList = document.getElementById('itemList');
-        const selectAllCheckbox = document.getElementById('selectAll');
-        const exportBtn = document.getElementById('exportBtn');
-        const clearAllBtn = document.getElementById('clearAllBtn');
+    // 찜 목록 관리 엘리먼트
+    const itemList = document.getElementById('itemList');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const exportBtn = document.getElementById('exportBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
 
-        let auctionItems = [];
-        let savedFolders = []; 
-        let importedItemsTemp = [];
+    let auctionItems = [];
+    let savedFolders = [];
+    let importedItemsTemp = [];
 
     // =========================================
     // [Section 3] 상단 탭 내비게이션 전환 로직
@@ -161,7 +160,7 @@ async function verifyAndExport(charName, mappedData, mode) {
             } else {
                 savedFolders = [];
             }
-            updateFolderSelectOptions(); 
+            updateFolderSelectOptions();
 
             if (result.auctionWishlist && result.auctionWishlist.items && result.auctionWishlist.items.length > 0) {
                 auctionItems = result.auctionWishlist.items;
@@ -186,7 +185,7 @@ async function verifyAndExport(charName, mappedData, mode) {
             const div = document.createElement('div');
             div.className = 'item';
             if (isUnwished) div.classList.add('unwished');
-            if (isClosed) div.classList.add('closed'); 
+            if (isClosed) div.classList.add('closed');
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -274,7 +273,7 @@ async function verifyAndExport(charName, mappedData, mode) {
                 savedFolders = [];
             }
             renderFolders();
-            updateFolderSelectOptions(); 
+            updateFolderSelectOptions();
         });
     }
 
@@ -310,7 +309,7 @@ async function verifyAndExport(charName, mappedData, mode) {
             activeBtn.className = 'btn-mini btn-active';
             activeBtn.textContent = '활성화 (Swap)';
             activeBtn.onclick = (e) => {
-                e.stopPropagation(); 
+                e.stopPropagation();
                 swapFolderToCalc(folder.id);
             };
 
@@ -318,7 +317,7 @@ async function verifyAndExport(charName, mappedData, mode) {
             delBtn.className = 'btn-mini btn-del';
             delBtn.textContent = '삭제';
             delBtn.onclick = (e) => {
-                e.stopPropagation(); 
+                e.stopPropagation();
                 deleteFolder(folder.id);
             };
 
@@ -330,12 +329,12 @@ async function verifyAndExport(charName, mappedData, mode) {
 
             header.addEventListener('click', () => {
                 folder.isExpanded = !folder.isExpanded;
-                renderFolders(); 
+                renderFolders();
             });
 
             const itemsContainer = document.createElement('div');
             itemsContainer.className = 'folder-items';
-            
+
             if (!folder.isExpanded) {
                 itemsContainer.style.display = 'none';
             } else {
@@ -365,7 +364,7 @@ async function verifyAndExport(charName, mappedData, mode) {
                     itemDelBtn.className = 'btn-mini btn-del';
                     itemDelBtn.textContent = '삭제';
                     itemDelBtn.onclick = (e) => {
-                        e.stopPropagation(); 
+                        e.stopPropagation();
                         deleteItemFromFolder(folder.id, itemIdx);
                     };
 
@@ -385,7 +384,7 @@ async function verifyAndExport(charName, mappedData, mode) {
             <option value="">-- 보관할 폴더 선택 --</option>
             <option value="NEW_FOLDER">🆕 [새 폴더 만들어 이동...]</option>
         `;
-        
+
         targetFolderSelect.innerHTML = optionTemplate;
         wishlistTargetFolderSelect.innerHTML = optionTemplate;
 
@@ -446,7 +445,7 @@ async function verifyAndExport(charName, mappedData, mode) {
         });
     }
 
- // =========================================
+    // =========================================
     // [Section 7] 역방향 불러오기 (사이트 -> 익스텐션 보관함)
     // =========================================
     importFromSiteBtn.addEventListener('click', async () => {
@@ -458,7 +457,7 @@ async function verifyAndExport(charName, mappedData, mode) {
         }
 
         let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        
+
         if (!tab || !tab.url || !tab.url.includes('maplescouter.com')) {
             alert('환산 사이트 장비 데이터를 가져오려면\n현재 탭이 메이플 환산기(maplescouter.com) 사이트여야 합니다.');
             return;
@@ -493,7 +492,6 @@ async function verifyAndExport(charName, mappedData, mode) {
         });
     });
 
-    // 커스텀 장비(My) 불러오기 이벤트 리스너 추가
     myFromSiteBtn.addEventListener('click', async () => {
         if (importedListWrapper.classList.contains('active')) {
             importedListWrapper.classList.remove('active');
@@ -503,7 +501,7 @@ async function verifyAndExport(charName, mappedData, mode) {
         }
 
         let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        
+
         if (!tab || !tab.url || !tab.url.includes('maplescouter.com')) {
             alert('환산 사이트 커스텀 장비를 가져오려면\n현재 탭이 메이플 환산기(maplescouter.com) 사이트여야 합니다.');
             return;
@@ -516,7 +514,6 @@ async function verifyAndExport(charName, mappedData, mode) {
                     const localData = localStorage.getItem('customEquipList');
                     if (!localData) return [];
                     const parsed = JSON.parse(localData);
-                    // customEquipList의 내부 배열 구조에 맞게 반환
                     return parsed?.state?.customEquipList || parsed?.state?.bookmarkList || (Array.isArray(parsed) ? parsed : []);
                 } catch (e) {
                     return [];
@@ -530,17 +527,15 @@ async function verifyAndExport(charName, mappedData, mode) {
 
             let items = results[0].result;
 
-            // 화이트리스트 필터링 적용
             const VALID_SLOTS = [
                 "반지", "반지1", "반지2", "반지3", "반지4",
-                "펜던트", "펜던트1", "펜던트2", 
+                "펜던트", "펜던트1", "펜던트2",
                 "무기", "보조무기", "포스실드", "엠블렘", "기계 심장",
-                "벨트", "모자", "얼굴장식", "눈장식", 
-                "상의", "하의", "신발", "귀고리", 
+                "벨트", "모자", "얼굴장식", "눈장식",
+                "상의", "하의", "신발", "귀고리",
                 "어깨장식", "장갑", "망토", "배지", "훈장"
             ];
 
-            // 화이트리스트에 포함된 슬롯만 추출
             items = items.filter(item => VALID_SLOTS.includes(item.slot));
 
             if (items.length === 0) {
@@ -553,7 +548,6 @@ async function verifyAndExport(charName, mappedData, mode) {
         });
     });
 
-    // 전체 선택/해제 이벤트 리스너 추가
     selectAllImported.addEventListener('change', (e) => {
         const checkboxes = document.querySelectorAll('.imported-checkbox');
         checkboxes.forEach(cb => cb.checked = e.target.checked);
@@ -571,7 +565,7 @@ async function verifyAndExport(charName, mappedData, mode) {
             checkbox.type = 'checkbox';
             checkbox.className = 'imported-checkbox';
             checkbox.value = index;
-            checkbox.checked = true; 
+            checkbox.checked = true;
 
             const img = document.createElement('img');
             img.src = item.iconUrl || "";
@@ -585,7 +579,7 @@ async function verifyAndExport(charName, mappedData, mode) {
             importedItemsContainer.appendChild(div);
         });
 
-        importedListWrapper.classList.add('active'); 
+        importedListWrapper.classList.add('active');
     }
 
     submitImportBtn.addEventListener('click', () => {
@@ -628,7 +622,7 @@ async function verifyAndExport(charName, mappedData, mode) {
 
         chrome.storage.local.set({ wishlistFolders: { folders: savedFolders } }, () => {
             alert(`성공적으로 ${itemsToMove.length}개의 장비가 보관함 폴더로 수납되었습니다.`);
-            importedListWrapper.classList.remove('active'); 
+            importedListWrapper.classList.remove('active');
             importedItemsTemp = [];
             loadFolders();
         });
@@ -702,7 +696,7 @@ async function verifyAndExport(charName, mappedData, mode) {
 
         if (!tab || !tab.url || !tab.url.includes('maplescouter.com')) {
             const confirmRedirect = confirm('현재 활성화된 탭이 메이플 환산기(maplescouter.com) 사이트가 아닙니다.\n캐릭터 이름을 입력하고 새 탭으로 환산기를 열어 자동으로 아이템을 추가하시겠습니까?');
-            
+
             if (confirmRedirect) {
                 showModal('이동할 캐릭터 이름을 입력해주세요:', (charName) => {
                     if (charName && charName.trim()) {
@@ -713,20 +707,18 @@ async function verifyAndExport(charName, mappedData, mode) {
                             items: mappedData,
                             folderName: '',
                             mode: 'EXPORT'
-                        }).catch(() => {}); 
-                        window.close(); 
+                        }).catch(() => { });
+                        window.close();
                     } else {
-                        // 이름을 입력하지 않고 확인을 눌렀거나, 취소한 경우
                         alert('캐릭터명이 입력되지 않아 아이템 추가 작업을 취소합니다.');
                     }
                 });
             } else {
-                // confirm에서 [취소]를 누른 경우
                 alert('아이템 추가 작업이 취소되었습니다. 환산 주스텟 - 아이템메이커 화면에서 다시 실행해 주세요.');
             }
-            return; // 탭 체크 완료 후 함수 종료
+            return;
         }
-        
+
         chrome.scripting.executeScript({
             target: { tabId: tab.id },
             func: (itemsToInject) => {
@@ -808,7 +800,7 @@ async function verifyAndExport(charName, mappedData, mode) {
         });
     });
 
-// =========================================
+    // =========================================
     // [Section 10] 보관함 폴더 -> 환산 사이트로 덮어쓰기 (Swap)
     // =========================================
     async function swapFolderToCalc(folderId) {
@@ -822,23 +814,22 @@ async function verifyAndExport(charName, mappedData, mode) {
 
         let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-        // 1. 환산 사이트 도메인인지 가장 먼저 확인합니다.
         if (!tab || !tab.url || !tab.url.includes('maplescouter.com')) {
             const confirmRedirect = confirm('현재 활성화된 탭이 메이플 환산기(maplescouter.com) 사이트가 아닙니다.\n새 탭으로 환산기를 열어 보관함을 교체하시겠습니까?');
-            
+
             if (confirmRedirect) {
                 showModal('이동할 캐릭터 이름을 입력해 주세요:', (charName) => {
                     if (charName && charName.trim()) {
                         const targetUrl = `https://maplescouter.com/ko/item?name=${encodeURIComponent(charName.trim())}&preset=00000`;
-                        
+
                         chrome.runtime.sendMessage({
                             action: 'OPEN_AND_INJECT',
                             url: targetUrl,
                             items: targetFolder.items,
                             folderName: targetFolder.name,
                             mode: 'SWAP'
-                        }).catch(() => {});
-                        window.close(); 
+                        }).catch(() => { });
+                        window.close();
                     } else {
                         alert('캐릭터명이 입력되지 않아 작업을 취소합니다.');
                     }
@@ -849,13 +840,11 @@ async function verifyAndExport(charName, mappedData, mode) {
             return;
         }
 
-        // 2. 이미 환산 사이트에 서 있는 경우에만 곧바로 덮어쓰기 컨펌을 띄웁니다.
         if (!confirm(`'${targetFolder.name}' 보관함의 아이템 세트(${targetFolder.items.length}개)로 환산 사이트 데이터를 교체(Swap)하시겠습니까?\n기존에 환산 사이트에 등록되어 있던 세트 목록은 덮어씌워집니다.`)) {
             alert('작업이 취소되었습니다. 환산 주스텟 - 아이템메이커 화면에서 직접 교체해 주세요.');
             return;
         }
 
-        // 이미 환산 사이트인 경우 즉각 주입
         chrome.scripting.executeScript({
             target: { tabId: tab.id },
             func: (itemsToOverwrite) => {

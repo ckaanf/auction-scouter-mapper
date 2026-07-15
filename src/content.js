@@ -25,7 +25,6 @@ window.addEventListener('message', (event) => {
         const newData = event.data.payload;
         if (!newData || !newData.items || !Array.isArray(newData.items)) return;
 
-        // 1. 환산 가능한 장비 카테고리만 1차 필터링
         const filteredItems = newData.items.filter(newItem => {
             const t = newItem.toolTip;
             if (!t || !t.categories) return false;
@@ -62,14 +61,11 @@ window.addEventListener('message', (event) => {
                 const isProductClosed = newItem.status && newItem.status !== 'ON_SALE';
                 const newTradeSnStr = String(newItem.tradeSn);
 
-                // 기존 데이터에 존재하는지 비교 (타입 일치 고려)
                 const existingIndex = existingItems.findIndex(item => String(item.tradeSn) === newTradeSnStr);
 
                 if (existingIndex > -1) {
-                    // 경매장 목록에 다시 복구되어 나타났으므로 활성화 상태로 복구
                     existingItems[existingIndex].isUnwished = false;
 
-                    // 마감 상태 실시간 동기화
                     if (isProductClosed) {
                         existingItems[existingIndex].isClosed = true;
                         closedCount++;
@@ -77,7 +73,6 @@ window.addEventListener('message', (event) => {
                         existingItems[existingIndex].isClosed = false;
                     }
                 } else {
-                    // 신규 아이템 등록
                     newItem.isUnwished = false;
                     newItem.isClosed = isProductClosed;
 
@@ -97,7 +92,7 @@ window.addEventListener('message', (event) => {
     // [2] DELETE 통신 (찜 해제) -> 상태 플래그 변경
     if (event.data.type === 'AUCTION_WISHLIST_DELETED') {
         const { tradeSn } = event.data.payload;
-        const targetTradeSnStr = String(tradeSn); // 타입 안전성 확보
+        const targetTradeSnStr = String(tradeSn);
 
         chrome.storage.local.get(['auctionWishlist'], (result) => {
             if (result.auctionWishlist && Array.isArray(result.auctionWishlist.items)) {
@@ -106,7 +101,7 @@ window.addEventListener('message', (event) => {
 
                 items = items.map(item => {
                     if (String(item.tradeSn) === targetTradeSnStr) {
-                        item.isUnwished = true; // 유저가 직접 찜 해제함 명시
+                        item.isUnwished = true;
                         updated = true;
                     }
                     return item;

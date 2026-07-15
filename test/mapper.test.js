@@ -27,7 +27,7 @@ describe('mapToCalcFormat 도메인 로직 테스트', () => {
         // then: 직업군이 도적으로 설정되었는지, 불필요 스탯이 0으로 처리되었는지 검증
         expect(result.class_group).toBe("도적");
         expect(result.totalOption.luk).toBe("50");
-        expect(result.totalOption.int).toBe("0"); 
+        expect(result.totalOption.int).toBe("0");
         expect(result.totalOption.magic_power).toBe("0");
     });
 

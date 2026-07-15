@@ -3,10 +3,10 @@ function mapToCalcFormat(auctionItem) {
     const upgrade = t.upgradeInfo || {};
     const job = t.reqJob || "";
 
-    // 1. 직업별 유효 스탯 필터링 조건 보강 (데몬 직업군 및 하위 전사 직업 대응)
+    // 직업별 유효 스탯 필터링 조건 보강 (데몬 직업군 및 하위 전사 직업 대응)
     const getValidKeysForJob = (jobName) => {
         if (jobName.includes("전사") || jobName.includes("데몬") || jobName.includes("아란") || jobName.includes("카이저") || jobName.includes("미하일")) {
-            return ["str", "dex", "max_hp", "attack_power", "all_stat"]; // 데몬어벤져 대응을 위해 max_hp 포함
+            return ["str", "dex", "max_hp", "attack_power", "all_stat"];
         }
         if (jobName.includes("마법사") || jobName.includes("루미너스") || jobName.includes("일리움")) {
             return ["int", "luk", "magic_power", "all_stat"];
@@ -25,11 +25,8 @@ function mapToCalcFormat(auctionItem) {
     const validKeys = getValidKeysForJob(job);
     const statMaskGroup = ["str", "dex", "int", "luk", "attack_power", "magic_power"];
 
-    // 2. 내부 스탯 옵션 순서 보장 생성기
     const createStatObj = (s, includeLevel = false) => {
         const obj = {};
-
-        // 요청하신 JSON의 내부 옵션 순서와 100% 일치
         const orderedKeys = [
             "str", "dex", "int", "luk", "max_hp", "max_mp",
             "attack_power", "magic_power", "armor", "speed",
@@ -58,7 +55,6 @@ function mapToCalcFormat(auctionItem) {
         return obj;
     };
 
-    // 3. 잠재능력 배열 생성 (3개 요소 고정)
     const parseOptions = (entries) => {
         const opts = ["없음", "없음", "없음"];
         if (entries && Array.isArray(entries)) {
@@ -69,25 +65,22 @@ function mapToCalcFormat(auctionItem) {
         return opts;
     };
 
-    // 4. 고유 식별자 생성
     const now = new Date();
     const datePart = now.toISOString().slice(2, 10).replace(/-/g, '');
     const timePart = now.toTimeString().split(' ')[0].replace(/:/g, '');
     const msPart = String(now.getMilliseconds()).padStart(3, '0');
     const characterName = `ItemMaker${datePart}_${timePart}${msPart.slice(0, 3)}`;
 
-    // 5. slot 및 part 예외 리매핑 (포스실드, 소울실드 등 전용 보조무기를 '보조무기' 슬롯으로 통일)
     const rawSlot = t.categories[1] || t.categories[0] || "기타";
     let mappedSlot = rawSlot;
     let mappedPart = rawSlot;
 
     if (["포스실드", "소울실드", "마법화살", "보조무기"].includes(rawSlot)) {
         mappedSlot = "보조무기";
-        mappedPart = rawSlot; // [수정] 하드코딩을 제거하고 원래의 장비 서브 카테고리명을 그대로 동적으로 유지합니다.
+        mappedPart = rawSlot; 
     }
 
-    // 6. class_group 세분화 매핑
-    let mappedClassGroup = "도적"; // 기본 디폴트
+    let mappedClassGroup = "도적";
     if (job.includes("전사") || job.includes("데몬") || job.includes("아란") || job.includes("카이저") || job.includes("미하일")) {
         mappedClassGroup = "전사";
     } else if (job.includes("마법사") || job.includes("루미너스") || job.includes("일리움")) {
@@ -100,7 +93,6 @@ function mapToCalcFormat(auctionItem) {
         mappedClassGroup = "해적";
     }
 
-    // 7. 반환 객체 (JSON 키 순서를 그대로 적용)
     return {
         slot: mappedSlot,
         part: mappedPart,
