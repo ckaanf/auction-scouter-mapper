@@ -1,0 +1,674 @@
+/* =========================================
+   공통 UI 컴포넌트: 체크박스
+   ========================================= */
+.ui-checkbox {
+    display: none;
+}
+
+.ui-checkbox-box {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #C8D0D8;
+    border-radius: 4px;
+    background-color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    margin-right: 12px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.ui-checkbox:checked+.ui-checkbox-box {
+    background-color: #F68600;
+    border-color: #F68600;
+}
+
+.ui-checkbox-box svg {
+    display: none;
+    width: 10px;
+    height: 8px;
+}
+
+.ui-checkbox:checked+.ui-checkbox-box svg {
+    display: block;
+}
+
+/* ==========================================================================
+   1. 기본 레이아웃 및 초기 스타일
+   ========================================================================== */
+body {
+    width: 400px;
+    padding: 15px;
+    font-family: 'Malgun Gothic', sans-serif;
+    margin: 0;
+    background-color: #fcfcfc;
+}
+
+h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 16px;
+    text-align: center;
+    color: #222;
+}
+
+/* ==========================================================================
+   2. 탭 내비게이션 스타일
+   ========================================================================== */
+.tab-container {
+    display: flex;
+    border-bottom: 2px solid #e8e8e8;
+    margin-bottom: 15px;
+    gap: 4px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 8px 0;
+    background: none;
+    border: none;
+    font-size: 13px;
+    font-weight: bold;
+    color: #888;
+    cursor: pointer;
+    text-align: center;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s ease;
+}
+
+.tab-btn.active {
+    color: #F68610;
+    border-bottom: 2px solid #F68610;
+}
+
+.tab-btn:hover:not(.active) {
+    color: #555;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* ==========================================================================
+   3. 아이템 리스트 및 행 디자인 (찜 목록/보관함)
+   ========================================================================== */
+.header-action {
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.item-list {
+    max-height: 250px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+}
+
+.item {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px dashed #f0f0f0;
+}
+
+.item:last-child {
+    border-bottom: none;
+}
+
+.item.unwished {
+    opacity: 0.5;
+    background-color: #fcfcfc;
+}
+
+.item.closed {
+    opacity: 0.45;
+    background-color: #fafafa;
+}
+
+.item-row {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    padding: 10px 5px;
+}
+
+.item-row:hover {
+    background-color: #f6e6d2;
+}
+
+/* 스트로크 */
+/* .item-row:hover {
+    background-color: transparent; 
+    box-shadow: inset 0 0 0 1.5px #F68610;
+}
+ */
+
+/* ==========================================================================
+   4. 아이템 내부 정보 (이름, 가격, 이미지)
+   ========================================================================== */
+.item img {
+    width: 32px;
+    height: 32px;
+    margin: 0 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+.item-info {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.item-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.item-name {
+    font-size: 13px;
+    font-weight: bold;
+    color: #333;
+}
+
+.item-price {
+    font-size: 11px;
+    color: #ca9503;
+    font-weight: bold;
+}
+
+/* 기본 체크박스는 숨김 */
+.item-checkbox {
+    display: none;
+}
+
+/* 체크박스 컨테이너 (레이아웃) */
+.custom-checkbox,
+imported-custom-checkbox {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #C8D0D8;
+    border-radius: 4px;
+    background-color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    margin-right: 12px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+/* 체크되었을 때 스타일 */
+.item-checkbox:checked+.custom-checkbox,
+.item-checkbox:checked+.imported-custom-checkbox {
+    background-color: #F68600;
+    border-color: #F68600;
+}
+
+/* 체크 아이콘 (SVG를 직접 배경으로 넣거나, 내부 요소로 배치) */
+.custom-checkbox svg .imported-custom-checkbox svg {
+    display: none;
+    /* 기본은 숨김 */
+    width: 10px;
+    height: 8px;
+}
+
+.item-checkbox:checked+.custom-checkbox svg,
+.imported-checkbox:checked+.imported-custom-checkbox svg {
+    display: block;
+}
+
+/* ==========================================================================
+   5. 배지 (상태, 스타포스, 잠재등급)
+   ========================================================================== */
+.badge-container {
+    display: flex;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.status-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-weight: bold;
+    display: inline-block;
+}
+
+.status-badge.unwished-badge {
+    background-color: #fff1f0;
+    color: #ff4d4f;
+    border: 1px solid #ffccc7;
+}
+
+.status-badge.closed-badge {
+    background-color: #f5f5f5;
+    color: #8c8c8c;
+    border: 1px solid #d9d9d9;
+}
+
+.star-badge {
+    display: inline-flex;
+    align-items: center;
+    background: #ffcc00;
+    color: #000;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 0 4px;
+    border-radius: 3px;
+    margin-left: 5px;
+    vertical-align: middle;
+}
+
+.rank-badge {
+    display: inline-flex;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-left: 4px;
+    vertical-align: middle;
+    color: white;
+}
+
+.rank-rare {
+    color: rgb(32, 124, 163);
+    background-color: rgba(54, 183, 207, 0.12);
+}
+
+.rank-epic {
+    color: rgb(127, 102, 211);
+    background-color: rgba(127, 102, 211, 0.12);
+}
+
+.rank-unique {
+    color: rgb(228, 184, 7);
+    background-color: rgba(228, 184, 7, 0.12);
+}
+
+.rank-legendary {
+    color: rgb(131, 173, 32);
+    background-color: rgba(131, 173, 32, 0.1);
+}
+
+/* ==========================================================================
+   6. 버튼 및 기타 컴포넌트
+   ========================================================================== */
+button.export-btn {
+    width: 100%;
+    padding: 10px;
+    background-color: #F68610;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+button.export-btn:hover {
+    background-color: #e38016;
+}
+
+button.delete-btn {
+    padding: 4px 8px;
+    background-color: transparent;
+    color: #888;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    margin-left: 5px;
+}
+
+button.delete-btn:hover {
+    background-color: #ff4d4f;
+    color: white;
+    border-color: #ff4d4f;
+}
+
+.empty-msg {
+    text-align: center;
+    color: #888;
+    font-size: 13px;
+    padding: 20px 0;
+}
+
+/* ==========================================================================
+   7. 환산 보관함 탭 전용 스타일
+   ========================================================================== */
+.action-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.action-bar input[type="text"] {
+    flex-grow: 1;
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.action-bar button {
+    padding: 6px 12px;
+    background-color: #F68610;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.action-bar button:hover {
+    background-color: #e38016;
+}
+
+.import-box {
+    background-color: #fbe9c1;
+    border: 1px solid #ffd67e;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 15px;
+}
+
+.import-btn-wrapper {
+    display: flex;
+    justify-content: space-between;
+}
+
+.import-btn-large {
+    width: 100%;
+    padding: 8px;
+    background-color: #F68610;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    margin: 5px;
+}
+
+.import-btn-large:hover {
+    background-color: #e38016;
+}
+
+.imported-list-wrapper {
+    display: none;
+    margin-top: 8px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.imported-list-wrapper.active {
+    display: block;
+}
+
+.imported-items {
+    max-height: 150px;
+    overflow-y: auto;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.imported-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    font-size: 11px;
+    color: #444;
+}
+
+.imported-item:hover {
+    background-color: #f6e6d2;
+}
+
+.imported-item img {
+    width: 16px;
+    height: 16px;
+    border-radius: 2px;
+}
+
+.import-control {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.import-control select {
+    flex-grow: 1;
+    padding: 5px;
+    font-size: 11px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background: white;
+}
+
+.import-control button {
+    padding: 5px 8px;
+    font-size: 11px;
+    background-color: #F68610;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+/* ==========================================================================
+   8. 폴더 트리 및 모달 스타일
+   ========================================================================== */
+.folder-list {
+    max-height: 280px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.folder-card {
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+    background-color: white;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.folder-header {
+    padding: 8px 12px;
+    background-color: #fcfcfc;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.folder-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #444;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.folder-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.btn-mini {
+    padding: 3px 6px;
+    font-size: 10px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 3px;
+    cursor: pointer;
+    color: #666;
+}
+
+.btn-mini.btn-active {
+    border-color: #F68610;
+    color: #F68610;
+    font-weight: bold;
+}
+
+.btn-mini.btn-active:hover {
+    background-color: #eaf6ec;
+}
+
+.btn-mini.btn-del:hover {
+    background-color: #fff1f0;
+    color: #ff4d4f;
+    border-color: #ffccc7;
+}
+
+.folder-items {
+    padding: 4px 12px;
+    background-color: #fff;
+    max-height: 150px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+
+    /* 스크롤바 숨기기 (Firefox, IE/Edge) */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.folder-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 6px;
+    border-bottom: 1px dashed #f5f5f5;
+    font-size: 11px;
+    color: #555;
+}
+
+.folder-item:hover {
+    background-color: #f6e6d2;
+}
+
+.folder-item:last-child {
+    border-bottom: none;
+}
+
+.folder-item-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.folder-item-info img {
+    width: 18px;
+    height: 18px;
+    background-color: #fcfcfc;
+    border-radius: 2px;
+}
+
+#charNameModal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+#charNameModal .modal-content {
+    background: white;
+    padding: 24px;
+    border-radius: 16px;
+    width: 260px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    animation: zoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes zoomIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+#modalMessage {
+    font-size: 14px;
+    color: #1a1a1a;
+    margin-bottom: 16px;
+    font-weight: bold;
+}
+
+#modalInput {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    box-sizing: border-box;
+    margin-bottom: 16px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+#modalInput:focus {
+    border-color: #F68610;
+    outline: none;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-cancel {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    background: #f8f8f8;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.btn-confirm {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: #F68610;
+    color: white;
+    cursor: pointer;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 13px;
+}

@@ -93,6 +93,30 @@ async function verifyAndExport(charName, mappedData, mode) {
     }
 }
 
+// 체크박스 UI를 생성해주는 공통 함수
+function createUIItemCheckbox(value, isChecked = false, extraClass = '') {
+    const fragment = document.createDocumentFragment();
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    // 기본 ui-checkbox 클래스에 제어용 extraClass(예: item-target) 추가
+    checkbox.className = `ui-checkbox ${extraClass}`.trim(); 
+    checkbox.value = value;
+    checkbox.checked = isChecked;
+
+    const box = document.createElement('span');
+    box.className = 'ui-checkbox-box';
+    box.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 8" fill="none">
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M9.35584 0.620788C9.53461 0.794625 9.5491 1.09213 9.38821 1.28528L4.89542 6.67886C4.32956 7.35817 3.37157 7.44284 2.71105 6.87192L0.663455 5.10206C0.475648 4.93973 0.445198 4.64364 0.595444 4.44072C0.74569 4.23781 1.01974 4.20491 1.20754 4.36724L3.25514 6.1371C3.55537 6.39661 3.99082 6.35812 4.24803 6.04934L8.74082 0.655762C8.90171 0.46261 9.17707 0.446952 9.35584 0.620788Z" fill="white" stroke="white" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>`;
+
+    fragment.appendChild(checkbox);
+    fragment.appendChild(box);
+
+    return fragment;
+}
+
 // =========================================
 // [Section 2] 초기화 및 DOM 엘리먼트 바인딩
 // =========================================
@@ -126,6 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectAllCheckbox = document.getElementById('selectAll');
     const exportBtn = document.getElementById('exportBtn');
     const clearAllBtn = document.getElementById('clearAllBtn');
+    const clearCheckBtn = document.getElementById('clearCheckBtn');
 
     let auctionItems = [];
     let savedFolders = [];
@@ -182,15 +207,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const isClosed = item.isClosed === true;
             const isUnwished = item.isUnwished === true;
 
-            const div = document.createElement('div');
-            div.className = 'item';
-            if (isUnwished) div.classList.add('unwished');
-            if (isClosed) div.classList.add('closed');
-
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'item-checkbox';
-            checkbox.value = index;
+            const label = document.createElement('label');
+            label.className = 'item item-row';
+            if (isUnwished) label.classList.add('unwished');
+            if (isClosed) label.classList.add('closed');
+            
+            const checkboxUI = createUIItemCheckbox(index, false, 'wishlist-target');
 
             const img = document.createElement('img');
             img.src = item.itemIcon?.fallBackUrl || "";
@@ -198,10 +220,49 @@ document.addEventListener('DOMContentLoaded', () => {
             const infoDiv = document.createElement('div');
             infoDiv.className = 'item-info';
 
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'item-header';
+
             const nameSpan = document.createElement('span');
             nameSpan.className = 'item-name';
             nameSpan.textContent = item.toolTip?.itemName || "이름 없는 아이템";
-            infoDiv.appendChild(nameSpan);
+            headerDiv.appendChild(nameSpan);
+
+            const startForce = item.toolTip.upgradeInfo.starForce.current;
+
+            if (startForce && startForce > 0) {
+                const starSpan = document.createElement('span');
+                starSpan.className = 'star-badge';
+                starSpan.textContent = `★ ${startForce}`;
+                headerDiv.appendChild(starSpan);
+            }
+
+            const gradeMap = {
+                1: { text: '레어', class: 'rank-rare' },
+                2: { text: '에픽', class: 'rank-epic' },
+                3: { text: '유니크', class: 'rank-unique' },
+                4: { text: '레전드리', class: 'rank-legendary' }
+            };
+
+            const potential = item.toolTip.upgradeInfo.potential;
+            if (potential && potential.grade > 0 ) {
+                const gradeInfo = gradeMap[potential.grade];
+                const potentialGrade = document.createElement('span');
+                potentialGrade.className = `rank-badge ${gradeInfo.class}`;
+                potentialGrade.textContent = gradeInfo.text; // 예: 'Legendary', 'Unique' 등
+                headerDiv.appendChild(potentialGrade);
+            }
+
+            const additionalPotential = item.toolTip.upgradeInfo.additionalPotential;
+            if (additionalPotential && additionalPotential.grade > 0 ) {
+                const gradeInfo = gradeMap[additionalPotential.grade];
+                const additionalPotentialGrade = document.createElement('span');
+                additionalPotentialGrade.className = `rank-badge ${gradeInfo.class}`;
+                additionalPotentialGrade.textContent = gradeInfo.text; // 예: 'Legendary', 'Unique' 등
+                headerDiv.appendChild(additionalPotentialGrade);
+            }
+
+            infoDiv.appendChild(headerDiv);
 
             const priceSpan = document.createElement('span');
             priceSpan.className = 'item-price';
@@ -232,13 +293,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-btn';
             deleteBtn.textContent = '삭제';
-            deleteBtn.onclick = () => deleteItem(item.tradeSn);
+            deleteBtn.onclick = (e) => {
+                e.preventDefault(); 
+                deleteItem(item.tradeSn);
+            };
 
-            div.appendChild(checkbox);
-            div.appendChild(img);
-            div.appendChild(infoDiv);
-            div.appendChild(deleteBtn);
-            itemList.appendChild(div);
+            label.appendChild(checkboxUI);
+            label.appendChild(img);
+            label.appendChild(infoDiv);
+            label.appendChild(deleteBtn);
+            itemList.appendChild(label);
         });
     }
 
@@ -257,8 +321,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    clearCheckBtn.addEventListener('click', async () => {
+        const checkboxes = document.querySelectorAll('.wishlist-target:checked');
+
+        if (checkboxes.length === 0) {
+            alert('삭제할 아이템을 선택해주세요.');
+            return;
+        }
+
+        if (confirm(`${checkboxes.length}개의 선택된 아이템을 삭제하시겠습니까?`)) {
+            const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.value));
+            chrome.storage.local.get(['auctionWishlist'], (result) => {
+                let items = result.auctionWishlist?.items || [];
+
+                const updatedItems = items.filter((_, index) => !selectedIndices.includes(index));
+                chrome.storage.local.set({ auctionWishlist: { items: updatedItems } }, () => {
+                    loadData();
+                });
+            });
+        }
+    });
+
     selectAllCheckbox.addEventListener('change', (e) => {
-        const checkboxes = document.querySelectorAll('.item-checkbox');
+        const checkboxes = document.querySelectorAll('.wishlist-target');
         checkboxes.forEach(cb => cb.checked = e.target.checked);
     });
 
@@ -424,6 +509,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    newFolderNameInput.addEventListener('keydown', (e) => {
+        // 💡 한글 입력(IME) 중복 발생 방지 및 키 꾹 누름 방지
+        if (e.isComposing || e.keyCode === 229 || e.repeat) {
+            return;
+        }
+
+        // 눌린 키가 Enter인지 확인
+        if (e.key === 'Enter') {
+            e.preventDefault(); 
+            createFolderBtn.click(); 
+        }
+    });
+
     function deleteFolder(folderId) {
         if (confirm('이 폴더와 포함된 모든 아이템을 보관함에서 영구 삭제하시겠습니까?')) {
             savedFolders = savedFolders.filter(f => f.id !== folderId);
@@ -558,8 +656,8 @@ document.addEventListener('DOMContentLoaded', () => {
         selectAllImported.checked = true; // 리스트를 새로 열 때 기본으로 전체 선택 상태 체크
 
         importedItemsTemp.forEach((item, index) => {
-            const div = document.createElement('div');
-            div.className = 'imported-item';
+            const label = document.createElement('label');
+            label.className = 'imported-item';
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -573,10 +671,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const nameSpan = document.createElement('span');
             nameSpan.textContent = `[${item.slot}] ${item.name}`;
 
-            div.appendChild(checkbox);
-            div.appendChild(img);
-            div.appendChild(nameSpan);
-            importedItemsContainer.appendChild(div);
+            label.appendChild(checkbox);
+            label.appendChild(img);
+            label.appendChild(nameSpan);
+            importedItemsContainer.appendChild(label);
         });
 
         importedListWrapper.classList.add('active');
@@ -683,7 +781,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // [Section 9] 찜 목록 -> 환산 사이트로 바로 추가 (Export)
     // =========================================
     exportBtn.addEventListener('click', async () => {
-        const checkboxes = document.querySelectorAll('.item-checkbox:checked');
+        const checkboxes = document.querySelectorAll('.wishlist-target:checked');
         const selectedItems = Array.from(checkboxes).map(cb => auctionItems[cb.value]);
 
         if (selectedItems.length === 0) {

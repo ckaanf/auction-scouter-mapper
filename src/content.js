@@ -30,7 +30,9 @@ window.addEventListener('message', (event) => {
             if (!t || !t.categories) return false;
 
             const slot = t.categories[1] || t.categories[0] || "";
-            return VALID_SLOTS.includes(slot);
+            const isCash= newItem.isCash;
+            
+            return !isCash && VALID_SLOTS.includes(slot);
         });
 
         chrome.storage.local.get(['auctionWishlist'], (result) => {

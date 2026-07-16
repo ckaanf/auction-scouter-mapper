@@ -1,7 +1,4 @@
 (function() {
-    console.log('[Extension] 인터셉터 스크립트 주입 완료');
-
-    // Fetch 통신 가로채기
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
         const url = args[0] instanceof Request ? args[0].url : args[0];
@@ -14,7 +11,6 @@
                     const urlObj = new URL(url.startsWith('http') ? url : window.location.origin + url);
                     const tradeSn = urlObj.searchParams.get('tradeSn');
                     if (tradeSn) {
-                        console.log('[Extension] Fetch DELETE 감지됨:', tradeSn);
                         window.postMessage({ type: 'AUCTION_WISHLIST_DELETED', payload: { tradeSn } }, '*');
                     }
                 } catch(e) {}
@@ -27,7 +23,6 @@
         return response;
     };
 
-    // XHR 통신 가로채기
     const originalXHROpen = window.XMLHttpRequest.prototype.open;
     window.XMLHttpRequest.prototype.open = function(method, url) {
         this._method = method;
@@ -44,7 +39,6 @@
                         const urlObj = new URL(this._url.startsWith('http') ? this._url : window.location.origin + this._url);
                         const tradeSn = urlObj.searchParams.get('tradeSn');
                         if (tradeSn) {
-                            console.log('[Extension] XHR DELETE 감지됨:', tradeSn);
                             window.postMessage({ type: 'AUCTION_WISHLIST_DELETED', payload: { tradeSn } }, '*');
                         }
                     } catch(e) {}
