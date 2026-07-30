@@ -11,7 +11,7 @@ script.onload = function () {
 const VALID_SLOTS = [
     "반지", "반지1", "반지2", "반지3", "반지4",
     "펜던트", "펜던트1", "펜던트2",
-    "무기", "보조무기", "포스실드", "엠블렘", "기계 심장",
+    "무기", "보조무기", "포스실드", "엠블렘", "기계 심장", "체스피스"
     "벨트", "모자", "얼굴장식", "눈장식",
     "상의", "하의", "신발", "귀고리",
     "어깨장식", "장갑", "망토", "배지", "훈장"
@@ -29,7 +29,7 @@ window.addEventListener('message', (event) => {
             const t = newItem.toolTip;
             if (!t || !t.categories) return false;
 
-            const slot = t.categories[1] || t.categories[0] || "";
+            const slot =  t.categories[0] || t.categories[1] || "";
             const isCash= newItem.isCash;
             
             return !isCash && VALID_SLOTS.includes(slot);
