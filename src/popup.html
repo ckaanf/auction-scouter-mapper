@@ -12,6 +12,7 @@
     <div class="tab-container">
         <button class="tab-btn active" id="tabWishlist">경매장 찜 목록</button>
         <button class="tab-btn" id="tabStorage">환산 메이커 보관함</button>
+        <button class="tab-btn" id="tabScouterSpecOrder">스펙업 순서</button>
     </div>
 
     <!--찜 목록-->
@@ -22,7 +23,9 @@
                     <input type="checkbox" id="selectAll" class="ui-checkbox">
                     <span class="ui-checkbox-box">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 8" fill="none">
-                            <path fill-rule="evenodd" clip-rule="evenodd" d="M9.35584 0.620788C9.53461 0.794625 9.5491 1.09213 9.38821 1.28528L4.89542 6.67886C4.32956 7.35817 3.37157 7.44284 2.71105 6.87192L0.663455 5.10206C0.475648 4.93973 0.445198 4.64364 0.595444 4.44072C0.74569 4.23781 1.01974 4.20491 1.20754 4.36724L3.25514 6.1371C3.55537 6.39661 3.99082 6.35812 4.24803 6.04934L8.74082 0.655762C8.90171 0.46261 9.17707 0.446952 9.35584 0.620788Z" fill="white" stroke="white" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <path fill-rule="evenodd" clip-rule="evenodd"
+                                d="M9.35584 0.620788C9.53461 0.794625 9.5491 1.09213 9.38821 1.28528L4.89542 6.67886C4.32956 7.35817 3.37157 7.44284 2.71105 6.87192L0.663455 5.10206C0.475648 4.93973 0.445198 4.64364 0.595444 4.44072C0.74569 4.23781 1.01974 4.20491 1.20754 4.36724L3.25514 6.1371C3.55537 6.39661 3.99082 6.35812 4.24803 6.04934L8.74082 0.655762C8.90171 0.46261 9.17707 0.446952 9.35584 0.620788Z"
+                                fill="white" stroke="white" stroke-linecap="round" stroke-linejoin="round"></path>
                         </svg>
                     </span>
                     <span>전체 선택</span>
@@ -84,6 +87,23 @@
         </div>
     </div>
 
+    <!--스펙업 순서-->
+    <div id="scouterSpecOrderContent" class="tab-content">
+        <div style="background: #f9f9f9; padding: 10px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #eee;">
+            <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px;">🎯 목표 최종 데미지 상승량 (%)</label>
+            <div style="display: flex; gap: 6px;">
+                <input type="number" id="targetFdInput" value="30" style="flex: 1; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;" placeholder="예: 30">
+                <button id="specOrderBtn" class="export-btn" style="margin: 0; padding: 6px 12px;">분석 실행</button>
+            </div>
+        </div>
+
+        <div id="scouterResultContainer" style="max-height: 380px; overflow-y: auto; font-size: 12px;">
+            <div style="text-align: center; color: #888; padding: 20px;">
+                환산기 사이트에서 스펙업 순서를 조회한 뒤<br>[분석 실행] 버튼을 눌러주세요.
+            </div>
+        </div>
+    </div>
+
     <div id="charNameModal">
         <div class="modal-content">
             <p id="modalMessage"></p>
@@ -95,25 +115,11 @@
         </div>
     </div>
 
-    <!-- 캐릭터 확인 모달 -->
-    <!-- <div id="charVerifyModal"
-        style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center;">
-        <div class="modal-content">
-            <p style="font-weight: bold; margin-bottom: 15px;">캐릭터 정보를 확인하세요</p>
-            <div id="charInfoDisplay" style="text-align: center; margin-bottom: 15px;">
-                <img id="charImage"
-                    style="width: 60px; height: 60px; border-radius: 50%; border: 2px solid #eee; margin-bottom: 8px;">
-                <div id="charDetails" style="font-size: 13px; line-height: 1.6; color: #444;"></div>
-            </div>
-            <div class="modal-actions">
-                <button id="verifyCancelBtn" class="btn-cancel">취소</button>
-                <button id="verifyConfirmBtn" class="btn-confirm">확인</button>
-            </div>
-        </div>
-    </div> -->
-
     <script src="mapper.js"></script>
-    <script src="popup.js"></script>
+    <script src="popup_ui.js"></script>
+    <script src="popup_aution.js"></script>
+    <script src="popup_scouter.js"></script>
+
 </body>
 
 </html>

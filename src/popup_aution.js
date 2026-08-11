@@ -121,12 +121,6 @@ function createUIItemCheckbox(value, isChecked = false, extraClass = '') {
 // [Section 2] 초기화 및 DOM 엘리먼트 바인딩
 // =========================================
 document.addEventListener('DOMContentLoaded', () => {
-    // 탭 내비게이션
-    const tabWishlist = document.getElementById('tabWishlist');
-    const tabStorage = document.getElementById('tabStorage');
-    const wishlistContent = document.getElementById('wishlistContent');
-    const storageContent = document.getElementById('storageContent');
-
     // 보관함 탭 전용 엘리먼트
     const newFolderNameInput = document.getElementById('newFolderName');
     const createFolderBtn = document.getElementById('createFolderBtn');
@@ -155,25 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let auctionItems = [];
     let savedFolders = [];
     let importedItemsTemp = [];
-
-    // =========================================
-    // [Section 3] 상단 탭 내비게이션 전환 로직
-    // =========================================
-    tabWishlist.addEventListener('click', () => {
-        tabWishlist.classList.add('active');
-        tabStorage.classList.remove('active');
-        wishlistContent.classList.add('active');
-        storageContent.classList.remove('active');
-        loadData();
-    });
-
-    tabStorage.addEventListener('click', () => {
-        tabStorage.classList.add('active');
-        tabWishlist.classList.remove('active');
-        storageContent.classList.add('active');
-        wishlistContent.classList.remove('active');
-        loadFolders();
-    });
 
     // =========================================
     // [Section 4] 데이터 통합 로드 및 찜 목록 렌더링

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "메이플 환산 아이템메이커 브릿지",
-  "version": "1.0.1",
-  "description": "메이플스토리 웹 경매장 찜 목록을 환산 주스탯 사이트로 내보냅니다.",
+  "version": "1.1.0",
+  "description": "메이플스토리 웹 경매장 찜 목록을 환산 주스탯 사이트로 내보내고, 환산기 스펙업 순서를 분석합니다.",
   "permissions": [
     "storage",
     "activeTab",
@@ -10,6 +10,7 @@
     "tabs"
   ],
   "host_permissions": [
+    "*://*.nexon.com/*",
     "*://*.maplescouter.com/*"
   ],
   "background": {
@@ -18,14 +19,23 @@
   "content_scripts": [
     {
       "matches": ["*://*.nexon.com/*"],
-      "js": ["src/content.js"],
+      "js": ["src/auction_content.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["*://*.maplescouter.com/*"],
+      "js": ["src/scouter_content.js"],
       "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/inject.js"],
+      "resources": ["src/auction_inject.js"],
       "matches": ["*://*.nexon.com/*"]
+    },
+    {
+      "resources": ["src/scouter_inject.js"],
+      "matches": ["*://*.maplescouter.com/*"]
     }
   ],
   "action": {
