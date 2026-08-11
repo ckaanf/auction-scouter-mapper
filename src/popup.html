@@ -89,17 +89,68 @@
 
     <!--스펙업 순서-->
     <div id="scouterSpecOrderContent" class="tab-content">
-        <div style="background: #f9f9f9; padding: 10px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #eee;">
-            <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px;">🎯 목표 최종 데미지 상승량 (%)</label>
-            <div style="display: flex; gap: 6px;">
-                <input type="number" id="targetFdInput" value="30" style="flex: 1; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;" placeholder="예: 30">
-                <button id="specOrderBtn" class="export-btn" style="margin: 0; padding: 6px 12px;">분석 실행</button>
+        <div
+            style="background: #f9f9f9; padding: 10px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #e8e8e8;">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                <div>
+                    <label
+                        style="font-size: 11px; font-weight: bold; color: #333; display: block; margin-bottom: 2px;">🎯
+                        목표 최종뎀</label>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <input type="number" id="targetFdInput" value="30" step="0.1"
+                            style="flex: 1; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px;">
+                        <span style="font-size: 11px; color: #555; font-weight: bold;">%</span>
+                    </div>
+                    <div id="targetFdCurrent" style="font-size: 10px; color: #999; margin-top: 2px;">현재 적용 : 30 %</div>
+                </div>
+
+                <div>
+                    <label
+                        style="font-size: 11px; font-weight: bold; color: #333; display: block; margin-bottom: 2px;">⚖️
+                        교환불가 가중치</label>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <input type="number" id="untradeWeightInput" value="1.5" step="0.1"
+                            style="flex: 1; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px;">
+                        <span style="font-size: 11px; color: #555; font-weight: bold;">배</span>
+                    </div>
+                    <div id="untradeWeightCurrent" style="font-size: 10px; color: #999; margin-top: 2px;">현재 가중치 : 1.5 배
+                    </div>
+                </div>
+
+                <div>
+                    <label
+                        style="font-size: 11px; font-weight: bold; color: #333; display: block; margin-bottom: 2px;">💎
+                        조각 가격</label>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <input type="number" id="fragmentPriceInput" value="700" step="10"
+                            style="flex: 1; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px;">
+                        <span style="font-size: 11px; color: #555; font-weight: bold;">만</span>
+                    </div>
+                    <div id="fragmentPriceCurrent" style="font-size: 10px; color: #999; margin-top: 2px;">현재 가격 : 700 만
+                    </div>
+                </div>
+
+                <div>
+                    <label
+                        style="font-size: 11px; font-weight: bold; color: #333; display: block; margin-bottom: 2px;">🔥
+                        환불 가격</label>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <input type="number" id="flamePriceInput" value="300" step="10"
+                            style="flex: 1; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px;">
+                        <span style="font-size: 11px; color: #555; font-weight: bold;">만</span>
+                    </div>
+                    <div id="flamePriceCurrent" style="font-size: 10px; color: #999; margin-top: 2px;">현재 가격 : 300 만
+                    </div>
+                </div>
             </div>
+
+            <button id="specOrderBtn" class="export-btn">설정 적용 및 분석 실행</button>
         </div>
 
         <div id="scouterResultContainer" style="max-height: 380px; overflow-y: auto; font-size: 12px;">
             <div style="text-align: center; color: #888; padding: 20px;">
-                환산기 사이트에서 스펙업 순서를 조회한 뒤<br>[분석 실행] 버튼을 눌러주세요.
+                환산기 사이트에서 스펙업 순서를 조회한 뒤<br>[설정 적용 및 분석 실행] 버튼을 눌러주세요.
             </div>
         </div>
     </div>
