@@ -71,14 +71,18 @@ function mapToCalcFormat(auctionItem) {
     const msPart = String(now.getMilliseconds()).padStart(3, '0');
     const characterName = `ItemMaker${datePart}_${timePart}${msPart.slice(0, 3)}`;
 
-    const rawSlot = t.categories[1] || t.categories[0] || "기타";
-    let mappedSlot = rawSlot;
-    let mappedPart = rawSlot;
+    const rawSlot = t.categories[0] || "기타";
+    const rawPart = t.categories[1] || "기타"; 
 
-    if (["포스실드", "소울실드", "마법화살", "보조무기"].includes(rawSlot)) {
-        mappedSlot = "보조무기";
-        mappedPart = rawSlot; 
+    let mappedSlot = rawSlot;
+    let mappedPart = rawPart;
+
+    if (["보조무기"].includes(rawSlot)) {
+        mappedSlot = rawSlot || "보조무기";
     }
+
+
+
 
     let mappedClassGroup = "도적";
     if (job.includes("전사") || job.includes("데몬") || job.includes("아란") || job.includes("카이저") || job.includes("미하일")) {
