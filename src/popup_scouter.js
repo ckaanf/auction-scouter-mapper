@@ -2,7 +2,8 @@
 // [Section 1] 이벤트 감지 및 바인딩
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    chrome.storage.local.get(['scouterConfig'], (res) => {
+    chrome.storage.local.get(['scouterConfig', 'lastSpecResult'], (res) => {
+        // 1. 설정값 복구 (기존 로직 유지)
         if (res.scouterConfig) {
             const cfg = res.scouterConfig;
             if (document.getElementById('targetFdInput')) document.getElementById('targetFdInput').value = cfg.targetFd;
@@ -11,13 +12,30 @@ document.addEventListener('DOMContentLoaded', () => {
             if (document.getElementById('flamePriceInput')) document.getElementById('flamePriceInput').value = cfg.flamePriceMan;
             updateCurrentDisplay(cfg);
         }
+
+        // 2. 이전 계산 결과 복구 (캐싱)
+        if (res.lastSpecResult) {
+            if (typeof renderAnalysisUI === 'function') {
+                const container = document.getElementById('scouterResultContainer');
+                renderAnalysisUI(res.lastSpecResult, container);
+            }
+        }
     });
 });
 
 
 document.addEventListener('click', (e) => {
     if (e.target && e.target.id === 'specOrderBtn') {
-        runSpecOrderAnalysis();
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            const currentUrl = tabs[0].url || "";
+
+            if (!currentUrl.includes("maplescouter.com") || !currentUrl.includes("spec-order")) {
+                alert("이 기능은 메이플스토리 환산기 사이트의 [스펙업 순서] 페이지에서만 사용할 수 있습니다.\n\n먼저 해당 페이지로 이동 후 다시 시도해주세요!");
+                return;
+            }
+
+            runSpecOrderAnalysis();
+        });
     }
 });
 
@@ -32,7 +50,6 @@ function updateCurrentDisplay(cfg) {
     if (fragEl) fragEl.innerText = `현재 가격 : ${cfg.fragmentPriceMan.toLocaleString()} 만`;
     if (flameEl) flameEl.innerText = `현재 가격 : ${cfg.flamePriceMan.toLocaleString()} 만`;
 }
-
 
 // ==========================================
 // [Section 2] 동일 아이템/스킬 단계 병합 (Helper)
@@ -142,20 +159,17 @@ function processSpecOrder(characterApi, data, rawBookMark, config) {
                 else if (key.startsWith('upgrade')) cat = '주문서/작';
                 else if (key.startsWith('addOption')) cat = '추가옵션';
 
-                // 📌 Key가 '_no'로 끝나면 교환불가(No Trade) 항목
                 const isNoTrade = key.endsWith('_no');
 
                 data[key].forEach(item => {
                     const originalCost = Number(item[2]) || 0; // 원본 기댓값
                     const eff1B = Number(item[3]) || 0;        // 1억당 원본 효율
 
-                    // ⚖️ 교불 항목은 untradeWeight(교불 가중치)를 반영하여 페널티 부여
-                    const weight = isNoTrade ? untradeWeight : 1.5;
+                    const weight = isNoTrade ? untradeWeight : 1.0;
                     const adjustedCost = originalCost * weight;         // 교불이면 비용 상승
                     const eff100B = (eff1B / weight) * 100;             // 교불이면 100억당 효율 하락
                     const actualIncrease = eff1B * originalCost;        // 스펙상 상승하는 최종뎀은 불변
 
-                    // 🔥 [추가옵션] 비용만 "검증 중"으로 마스킹 (효율 eff100B는 교불 페널티가 반영된 상태로 정렬에 사용됨)
                     let displayCost = adjustedCost;
                     if (cat === '추가옵션') {
                         displayCost = "검증 중";
@@ -259,7 +273,6 @@ function processSpecOrder(characterApi, data, rawBookMark, config) {
             selectedItemsIncludingBookmark.push(item);
             currentFdMultiplier *= (1 + (item.actualIncrease / 100));
 
-            // "검증 중" 문자열인 경우 연산 시 NaN 방지
             const itemCostNum = typeof item.cost === 'number' ? item.cost : 0;
             accumulatedCost += itemCostNum;
 
@@ -279,7 +292,8 @@ function processSpecOrder(characterApi, data, rawBookMark, config) {
             groupedCategory[item.category].push(item);
         });
 
-        return { config, totalAchievedFd, accumulatedCost, selectedItems, mergedSummaryList, groupedCategory, allItems };
+        const statTime = new Date().toISOString();
+        return { config, totalAchievedFd, accumulatedCost, selectedItems, mergedSummaryList, groupedCategory, allItems, statTime };
     } catch (error) {
         console.error("❌ processSpecOrder 에러:", error.message);
         return null;
@@ -326,7 +340,19 @@ function runSpecOrderAnalysis() {
         // 북마크 데이터 포함하여 위치 계산
         const analysisResult = processSpecOrder(characterApi, data, rawBookMark, config);
         if (analysisResult && container) {
+            analysisResult.calculatedAt = new Date().toLocaleString('ko-KR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
             renderAnalysisUI(analysisResult, container);
+
+            chrome.storage.local.set({ lastSpecResult: analysisResult }, () => {
+            });
 
             const selectedCount = analysisResult.selectedItems.length;
 
@@ -390,7 +416,10 @@ function runSpecOrderAnalysis() {
 function renderAnalysisUI(res, container) {
     let html = `
         <div style="background: #fff8ec; border: 1px solid #ffd591; padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 13px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <div style="font-weight: bold; color: #d46b08; margin-bottom: 5px;">📈 스펙업 최단 경로 요약</div>
+            <div style="font-size: 11px; color: #8c8c8c; margin-bottom: 8px;">🕒 분석 일시: ${res.calculatedAt || new Date().toLocaleString('ko-KR')}</div>        
+        </div>
             <div>총 필요 기댓값: <b style="color: #cf1322;">약 ${res.accumulatedCost.toFixed(2)}억 메소</b></div>
             <div>예상 최종뎀 상승: <b style="color: #389e0d;">+${res.totalAchievedFd.toFixed(3)}%</b> (목표: ${res.config.targetFd}%)</div>
         </div>
@@ -423,7 +452,7 @@ function renderAnalysisUI(res, container) {
                     : `<div style="width: 28px; height: 28px; background: #f5f5f5; border: 1px solid #e8e8e8; border-radius: 4px; margin-right: 10px; display:inline-flex; align-items:center; justify-content:center; font-size:12px;">💎</div>`;
 
                 const stepBadge = item.stepCount > 1 ? ` <span style="background: #e6f7ff; color: #096dd9; padding: 2px 5px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 4px;">${item.stepCount}단계 합산</span>` : '';
-
+                const costDisplay = typeof item.cost === 'number' ? `${item.cost.toFixed(2)}억` : item.cost;
                 html += `
                     <div style="display: flex; align-items: center; background: #ffffff; border: 1px solid #e8e8e8; border-radius: 6px; padding: 7px 9px; margin-bottom: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
                         ${imgTag}
@@ -432,7 +461,7 @@ function renderAnalysisUI(res, container) {
                                 ${item.name}${stepBadge}
                             </div>
                             <div style="font-size: 11px; color: #777; display: flex; justify-content: space-between;">
-                                <span>기댓값: <b style="color:#fa8c16;">${item.cost.toFixed(2)}억</b></span>
+                                <span>기댓값: <b style="color:#fa8c16;">${costDisplay}</b></span>
                                 <span>최종뎀: <b style="color:#52c41a;">+${item.actualIncrease.toFixed(3)}%</b></span>
                             </div>
                         </div>
@@ -456,6 +485,7 @@ function renderAnalysisUI(res, container) {
             ? `<img src="${item.img}" style="width: 24px; height: 24px; object-fit: contain; margin-right: 8px; border-radius: 3px;">`
             : `<div style="width: 24px; height: 24px; background: #f0f0f0; border-radius: 3px; margin-right: 8px; display:inline-flex; align-items:center; justify-content:center; font-size:10px;">${idx + 1}</div>`;
 
+            const costDisplay = typeof item.cost === 'number' ? `${item.cost.toFixed(2)}억` : item.cost;
         html += `
             <div style="display: flex; align-items: center; background: #fff; border: 1px solid #eee; border-radius: 5px; padding: 6px 8px; margin-bottom: 5px;">
                 <span style="font-size: 11px; font-weight: bold; color: #888; width: 22px;">#${idx + 1}</span>
@@ -463,7 +493,7 @@ function renderAnalysisUI(res, container) {
                 <div style="flex: 1; overflow: hidden;">
                     <div style="font-weight: 500; font-size: 11px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</div>
                     <div style="font-size: 10px; color: #888; margin-top: 1px;">
-                        기댓값: <b style="color:#fa8c16;">${item.cost.toFixed(2)}억</b> | 상승: <b style="color:#52c41a;">+${item.actualIncrease.toFixed(3)}%</b>
+                        기댓값: <b style="color:#fa8c16;">${costDisplay}</b> | 상승: <b style="color:#52c41a;">+${item.actualIncrease.toFixed(3)}%</b>
                     </div>
                 </div>
             </div>
