@@ -164,21 +164,25 @@ function processSpecOrder(characterApi, data, rawBookMark, config) {
                 data[key].forEach(item => {
                     const originalCost = Number(item[2]) || 0; // 원본 기댓값
                     const eff1B = Number(item[3]) || 0;        // 1억당 원본 효율
-
-                    const weight = isNoTrade ? untradeWeight : 1.0;
-                    const adjustedCost = originalCost * weight;         // 교불이면 비용 상승
-                    const eff100B = (eff1B / weight) * 100;             // 교불이면 100억당 효율 하락
                     const actualIncrease = eff1B * originalCost;        // 스펙상 상승하는 최종뎀은 불변
 
-                    let displayCost = adjustedCost;
+                    // 기본 계산 (추옵 외 다른 아이템들용)
+                    const weight = isNoTrade ? untradeWeight : 1.0;
+                    let adjustedCost = originalCost * weight;
+                    let eff100B = (eff1B / weight) * 100;
+
                     if (cat === '추가옵션') {
-                        displayCost = "검증 중";
+                        const tryCount = originalCost / 0.025;
+                        const baseCost = tryCount * flamePriceEok;
+                        
+                        adjustedCost = baseCost * weight;
+                        eff100B = adjustedCost > 0 ? (actualIncrease / adjustedCost) * 100 : 0;
                     }
 
                     allItems.push({
                         category: cat,
                         name: item[0],
-                        cost: displayCost,
+                        cost: adjustedCost,
                         eff100B: eff100B,              // 교불 가중치가 타서 정확해진 정렬용 효율 점수
                         actualIncrease: actualIncrease,
                         img: item[4] || ""
@@ -485,7 +489,7 @@ function renderAnalysisUI(res, container) {
             ? `<img src="${item.img}" style="width: 24px; height: 24px; object-fit: contain; margin-right: 8px; border-radius: 3px;">`
             : `<div style="width: 24px; height: 24px; background: #f0f0f0; border-radius: 3px; margin-right: 8px; display:inline-flex; align-items:center; justify-content:center; font-size:10px;">${idx + 1}</div>`;
 
-            const costDisplay = typeof item.cost === 'number' ? `${item.cost.toFixed(2)}억` : item.cost;
+        const costDisplay = typeof item.cost === 'number' ? `${item.cost.toFixed(2)}억` : item.cost;
         html += `
             <div style="display: flex; align-items: center; background: #fff; border: 1px solid #eee; border-radius: 5px; padding: 6px 8px; margin-bottom: 5px;">
                 <span style="font-size: 11px; font-weight: bold; color: #888; width: 22px;">#${idx + 1}</span>
