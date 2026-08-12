@@ -1,4 +1,5 @@
 # Local
+.worktrees/
 
 # Node
 node_modules/
