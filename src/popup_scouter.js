@@ -119,15 +119,21 @@ function mergeSelectedItems(selectedItems) {
 
 
 // ==========================================
-// [Section 3] 핵심 스펙업 데이터 처리 (무료 항목 버그 완벽 수정)
+// [Section 3] 핵심 스펙업 데이터 처리 (추옵 기댓값만 마스킹 & 전체 일관 정렬)
 // ==========================================
-function processSpecOrder(data, rawBookMark, config) {
+function processSpecOrder(characterApi, data, rawBookMark, config) {
     try {
         let allItems = [];
         const { targetFd, untradeWeight, fragmentPriceEok, flamePriceEok } = config;
 
-        // A. 일반 장비 파싱
-        const commonKeys = ['star_result', 'poten_result', 'upgrade_result', 'addOption_result', 'star_result_no'];
+        // A. 일반 장비 파싱 (교불 _no 키 자동 판별 및 가중치 적용)
+        const commonKeys = [
+            'star_result', 'star_result_no',
+            'poten_result', 'poten_result_no',
+            'upgrade_result', 'upgrade_result_no',
+            'addOption_result', 'addOption_result_no'
+        ];
+
         commonKeys.forEach(key => {
             if (data[key] && Array.isArray(data[key])) {
                 let cat = '장비';
@@ -136,24 +142,33 @@ function processSpecOrder(data, rawBookMark, config) {
                 else if (key.startsWith('upgrade')) cat = '주문서/작';
                 else if (key.startsWith('addOption')) cat = '추가옵션';
 
+                // 📌 Key가 '_no'로 끝나면 교환불가(No Trade) 항목
+                const isNoTrade = key.endsWith('_no');
+
                 data[key].forEach(item => {
-                    const originalCost = Number(item[2]) || 0;
-                    const eff1B = Number(item[3]) || 0;
+                    const originalCost = Number(item[2]) || 0; // 원본 기댓값
+                    const eff1B = Number(item[3]) || 0;        // 1억당 원본 효율
 
-                    const actualIncrease = eff1B * originalCost;
+                    // ⚖️ 교불 항목은 untradeWeight(교불 가중치)를 반영하여 페널티 부여
+                    const weight = isNoTrade ? untradeWeight : 1.5;
+                    const adjustedCost = originalCost * weight;         // 교불이면 비용 상승
+                    const eff100B = (eff1B / weight) * 100;             // 교불이면 100억당 효율 하락
+                    const actualIncrease = eff1B * originalCost;        // 스펙상 상승하는 최종뎀은 불변
 
-                    // 🔥 환불 가격 비례 보정 비율 (기본 0.09억 기준)
-                    let ratio = 1;
+                    // 🔥 [추가옵션] 비용만 "검증 중"으로 마스킹 (효율 eff100B는 교불 페널티가 반영된 상태로 정렬에 사용됨)
+                    let displayCost = adjustedCost;
                     if (cat === '추가옵션') {
-                        ratio = flamePriceEok / 0.09;
+                        displayCost = "검증 중";
                     }
 
-                    const adjustedCost = originalCost * ratio;
-
-                    // 💡 [버그 수정] 비용이 0원이라도 효율이 0이 되지 않도록, 비용으로 나누지 않고 ratio로만 나눕니다.
-                    const eff100B = (eff1B / ratio) * 100;
-
-                    allItems.push({ category: cat, name: item[0], cost: adjustedCost, eff100B: eff100B, actualIncrease: actualIncrease, img: item[4] || "" });
+                    allItems.push({
+                        category: cat,
+                        name: item[0],
+                        cost: displayCost,
+                        eff100B: eff100B,              // 교불 가중치가 타서 정확해진 정렬용 효율 점수
+                        actualIncrease: actualIncrease,
+                        img: item[4] || ""
+                    });
                 });
             }
         });
@@ -165,13 +180,17 @@ function processSpecOrder(data, rawBookMark, config) {
                 const eff1B = Number(item[3]) || 0;
                 const actualIncrease = eff1B * originalCost;
 
-                // ⚖️ 심볼은 교불 가중치로 비용 상승 페널티
                 const adjustedCost = originalCost * untradeWeight;
-
-                // 💡 [버그 수정] 카르시온 1렙 등 비용이 0원인 심볼이 사라지지 않게 방어
                 const eff100B = (eff1B / untradeWeight) * 100;
 
-                allItems.push({ category: '심볼', name: `[심볼] ${item[0]} ${item[1]}레벨`, cost: adjustedCost, eff100B: eff100B, actualIncrease: actualIncrease, img: item[4] || "" });
+                allItems.push({
+                    category: '심볼',
+                    name: `[심볼] ${item[0]} ${item[1]}레벨`,
+                    cost: adjustedCost,
+                    eff100B: eff100B,
+                    actualIncrease: actualIncrease,
+                    img: item[4] || ""
+                });
             });
         }
 
@@ -182,7 +201,6 @@ function processSpecOrder(data, rawBookMark, config) {
                 const targetLevel = Number(hexaItem[1]) || 0;
                 const levelInfo = hexaItem[10] || `${targetLevel - 1}→${targetLevel}`;
 
-
                 const scoreItem7 = Number(hexaItem[7]) || 0;
                 const fragmentCount = Number(hexaItem[4]) || 0;
 
@@ -190,28 +208,45 @@ function processSpecOrder(data, rawBookMark, config) {
                 const actualIncrease = scoreItem7 * (fragmentCount / 30);
                 const eff100B = adjustedCost > 0 ? (actualIncrease / adjustedCost) * 100 : 0;
 
-                allItems.push({ category: '헥사', name: `[헥사] ${skillName} (${levelInfo})`, cost: adjustedCost, eff100B: eff100B, actualIncrease: actualIncrease, img: `https://maplescouter.com//${hexaItem[2]}` || "" });
+                allItems.push({
+                    category: '헥사',
+                    name: `[헥사] ${skillName} (${levelInfo})`,
+                    cost: adjustedCost,
+                    eff100B: eff100B,
+                    actualIncrease: actualIncrease,
+                    img: `https://maplescouter.com//${hexaItem[2]}` || ""
+                });
             });
         }
 
-        // D. 📌 북마크 파싱 (위치 계산을 위해 포함하되, 나중에 출력에서만 제외)
+        // D. 📌 북마크 파싱 (캐릭터 검증 포함)
+        const characterName = characterApi?.state?.searchResult?.userApiData?.info?.character_name || "Unknown";
         try {
             if (rawBookMark) {
                 const localData = JSON.parse(rawBookMark);
                 if (localData && localData.state && Array.isArray(localData.state.simulBookmarkList)) {
                     localData.state.simulBookmarkList.forEach(bookmark => {
+                        const bookmarkCharacterName = bookmark.character || "Unknown";
                         const weight = bookmark.noTrade ? untradeWeight : 1.0;
                         const finalCost = Number(bookmark.cost) * weight || 0;
                         const actualIncrease = Number(bookmark.eff) || 0;
-                        const eff100B = finalCost > 0 ? (actualIncrease / finalCost) * 100 : 0;
 
-                        allItems.push({ category: '북마크', name: `[북마크] ${bookmark.name}`, cost: 0, eff100B: 0, actualIncrease: actualIncrease, img: bookmark.img || "" });
+                        if (bookmarkCharacterName === characterName) {
+                            allItems.push({
+                                category: '북마크',
+                                name: `[북마크] ${bookmark.name}`,
+                                cost: 0,
+                                eff100B: 0,
+                                actualIncrease: actualIncrease,
+                                img: bookmark.img || ""
+                            });
+                        }
                     });
                 }
             }
         } catch (lmError) { }
 
-        // E. 100억당 효율 기준 정렬
+        // E. 100억당 효율 기준 정렬 (A, B, C, D 카테고리 전체가 eff100B 숫자 필드로 완벽하게 정렬됨)
         allItems.sort((a, b) => b.eff100B - a.eff100B);
 
         // F. 목표 도달 계산 (복리 누적)
@@ -223,15 +258,18 @@ function processSpecOrder(data, rawBookMark, config) {
             const item = allItems[i];
             selectedItemsIncludingBookmark.push(item);
             currentFdMultiplier *= (1 + (item.actualIncrease / 100));
-            accumulatedCost += item.cost;
+
+            // "검증 중" 문자열인 경우 연산 시 NaN 방지
+            const itemCostNum = typeof item.cost === 'number' ? item.cost : 0;
+            accumulatedCost += itemCostNum;
 
             const currentTotalFdPercent = (currentFdMultiplier - 1) * 100;
             if (currentTotalFdPercent >= targetFd) break;
         }
 
         const totalAchievedFd = (currentFdMultiplier - 1) * 100;
-
         const selectedItems = selectedItemsIncludingBookmark.filter(item => item.category !== '북마크');
+
         // G. 병합 및 그룹화
         const mergedSummaryList = mergeSelectedItems(selectedItems);
         const groupedCategory = {};
@@ -272,7 +310,8 @@ function runSpecOrderAnalysis() {
     chrome.storage.local.set({ scouterConfig: config });
 
     // 🔥 북마크 데이터(rawBookmarkData)도 함께 불러옵니다.
-    chrome.storage.local.get(['specOrderData', 'rawBookmarkData'], (result) => {
+    chrome.storage.local.get(['characterApiData', 'specOrderData', 'rawBookmarkData'], (result) => {
+        const characterApi = result.characterApiData;
         const data = result.specOrderData;
         const rawBookMark = result.rawBookmarkData;
         const container = document.getElementById('scouterResultContainer');
@@ -285,33 +324,32 @@ function runSpecOrderAnalysis() {
         if (container) container.innerHTML = `<div style="text-align:center; padding:20px; color:#666;">🔄 커스텀 설정을 반영하여 분석 중입니다...</div>`;
 
         // 북마크 데이터 포함하여 위치 계산
-        const analysisResult = processSpecOrder(data, rawBookMark, config);
-
+        const analysisResult = processSpecOrder(characterApi, data, rawBookMark, config);
         if (analysisResult && container) {
             renderAnalysisUI(analysisResult, container);
-            
+
             const selectedCount = analysisResult.selectedItems.length;
 
             const highlightNames = selectedCount > 0
                 ? [analysisResult.selectedItems[selectedCount - 1].name]
                 : [];
-            
+
             chrome.tabs.query(
                 {
                     active: true,
                     currentWindow: true
                 },
                 (tabs) => {
-            
+
                     const activeTab = tabs[0];
-            
+
                     if (!activeTab?.id) {
                         console.error(
                             "[MapleScouter] 활성 탭이 없습니다."
                         );
                         return;
                     }
-            
+
                     if (
                         !activeTab.url ||
                         !activeTab.url.includes("maplescouter.com")
@@ -322,7 +360,7 @@ function runSpecOrderAnalysis() {
                         );
                         return;
                     }
-            
+
                     chrome.tabs.sendMessage(
                         activeTab.id,
                         {
@@ -330,7 +368,7 @@ function runSpecOrderAnalysis() {
                             highlightNames: highlightNames
                         },
                         (response) => {
-            
+
                             if (chrome.runtime.lastError) {
                                 console.error(
                                     "[MapleScouter] 메시지 전송 실패:",

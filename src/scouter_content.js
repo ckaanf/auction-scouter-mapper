@@ -18,6 +18,7 @@ window.addEventListener("message", function(event) {
     if (event.data.type === "MAPLESCOUTER_SPEC_DATA_INTERCEPTED") {
         const intercepted = event.data.payload;
         chrome.storage.local.set({ 
+            characterApiData: intercepted.characterApi,
             specOrderData: intercepted.specOrder,
             rawBookmarkData: intercepted.bookmarks 
         });
