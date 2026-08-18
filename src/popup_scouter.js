@@ -2,7 +2,8 @@
 // [Section 1] 이벤트 감지 및 바인딩
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    chrome.storage.local.get(['scouterConfig'], (res) => {
+    chrome.storage.local.get(['scouterConfig', 'lastSpecResult'], (res) => {
+        // 1. 설정값 복구 (기존 로직 유지)
         if (res.scouterConfig) {
             const cfg = res.scouterConfig;
             if (document.getElementById('targetFdInput')) document.getElementById('targetFdInput').value = cfg.targetFd;
@@ -11,13 +12,30 @@ document.addEventListener('DOMContentLoaded', () => {
             if (document.getElementById('flamePriceInput')) document.getElementById('flamePriceInput').value = cfg.flamePriceMan;
             updateCurrentDisplay(cfg);
         }
+
+        // 2. 이전 계산 결과 복구 (캐싱)
+        if (res.lastSpecResult) {
+            if (typeof renderAnalysisUI === 'function') {
+                const container = document.getElementById('scouterResultContainer');
+                renderAnalysisUI(res.lastSpecResult, container);
+            }
+        }
     });
 });
 
 
 document.addEventListener('click', (e) => {
     if (e.target && e.target.id === 'specOrderBtn') {
-        runSpecOrderAnalysis();
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            const currentUrl = tabs[0].url || "";
+
+            if (!currentUrl.includes("maplescouter.com") || !currentUrl.includes("spec-order")) {
+                alert("이 기능은 메이플스토리 환산기 사이트의 [스펙업 순서] 페이지에서만 사용할 수 있습니다.\n\n먼저 해당 페이지로 이동 후 다시 시도해주세요!");
+                return;
+            }
+
+            runSpecOrderAnalysis();
+        });
     }
 });
 
@@ -32,7 +50,6 @@ function updateCurrentDisplay(cfg) {
     if (fragEl) fragEl.innerText = `현재 가격 : ${cfg.fragmentPriceMan.toLocaleString()} 만`;
     if (flameEl) flameEl.innerText = `현재 가격 : ${cfg.flamePriceMan.toLocaleString()} 만`;
 }
-
 
 // ==========================================
 // [Section 2] 동일 아이템/스킬 단계 병합 (Helper)
@@ -119,15 +136,21 @@ function mergeSelectedItems(selectedItems) {
 
 
 // ==========================================
-// [Section 3] 핵심 스펙업 데이터 처리 (무료 항목 버그 완벽 수정)
+// [Section 3] 핵심 스펙업 데이터 처리 (추옵 기댓값만 마스킹 & 전체 일관 정렬)
 // ==========================================
-function processSpecOrder(data, rawBookMark, config) {
+function processSpecOrder(characterApi, data, rawBookMark, config) {
     try {
         let allItems = [];
         const { targetFd, untradeWeight, fragmentPriceEok, flamePriceEok } = config;
 
-        // A. 일반 장비 파싱
-        const commonKeys = ['star_result', 'poten_result', 'upgrade_result', 'addOption_result', 'star_result_no'];
+        // A. 일반 장비 파싱 (교불 _no 키 자동 판별 및 가중치 적용)
+        const commonKeys = [
+            'star_result', 'star_result_no',
+            'poten_result', 'poten_result_no',
+            'upgrade_result', 'upgrade_result_no',
+            'addOption_result', 'addOption_result_no'
+        ];
+
         commonKeys.forEach(key => {
             if (data[key] && Array.isArray(data[key])) {
                 let cat = '장비';
@@ -136,24 +159,34 @@ function processSpecOrder(data, rawBookMark, config) {
                 else if (key.startsWith('upgrade')) cat = '주문서/작';
                 else if (key.startsWith('addOption')) cat = '추가옵션';
 
+                const isNoTrade = key.endsWith('_no');
+
                 data[key].forEach(item => {
-                    const originalCost = Number(item[2]) || 0;
-                    const eff1B = Number(item[3]) || 0;
+                    const originalCost = Number(item[2]) || 0; // 원본 기댓값
+                    const eff1B = Number(item[3]) || 0;        // 1억당 원본 효율
+                    const actualIncrease = eff1B * originalCost;        // 스펙상 상승하는 최종뎀은 불변
 
-                    const actualIncrease = eff1B * originalCost;
+                    // 기본 계산 (추옵 외 다른 아이템들용)
+                    const weight = isNoTrade ? untradeWeight : 1.0;
+                    let adjustedCost = originalCost * weight;
+                    let eff100B = (eff1B / weight) * 100;
 
-                    // 🔥 환불 가격 비례 보정 비율 (기본 0.09억 기준)
-                    let ratio = 1;
                     if (cat === '추가옵션') {
-                        ratio = flamePriceEok / 0.09;
+                        const tryCount = originalCost / 0.025;
+                        const baseCost = tryCount * flamePriceEok;
+                        
+                        adjustedCost = baseCost * weight;
+                        eff100B = adjustedCost > 0 ? (actualIncrease / adjustedCost) * 100 : 0;
                     }
 
-                    const adjustedCost = originalCost * ratio;
-
-                    // 💡 [버그 수정] 비용이 0원이라도 효율이 0이 되지 않도록, 비용으로 나누지 않고 ratio로만 나눕니다.
-                    const eff100B = (eff1B / ratio) * 100;
-
-                    allItems.push({ category: cat, name: item[0], cost: adjustedCost, eff100B: eff100B, actualIncrease: actualIncrease, img: item[4] || "" });
+                    allItems.push({
+                        category: cat,
+                        name: item[0],
+                        cost: adjustedCost,
+                        eff100B: eff100B,              // 교불 가중치가 타서 정확해진 정렬용 효율 점수
+                        actualIncrease: actualIncrease,
+                        img: item[4] || ""
+                    });
                 });
             }
         });
@@ -165,13 +198,17 @@ function processSpecOrder(data, rawBookMark, config) {
                 const eff1B = Number(item[3]) || 0;
                 const actualIncrease = eff1B * originalCost;
 
-                // ⚖️ 심볼은 교불 가중치로 비용 상승 페널티
                 const adjustedCost = originalCost * untradeWeight;
-
-                // 💡 [버그 수정] 카르시온 1렙 등 비용이 0원인 심볼이 사라지지 않게 방어
                 const eff100B = (eff1B / untradeWeight) * 100;
 
-                allItems.push({ category: '심볼', name: `[심볼] ${item[0]} ${item[1]}레벨`, cost: adjustedCost, eff100B: eff100B, actualIncrease: actualIncrease, img: item[4] || "" });
+                allItems.push({
+                    category: '심볼',
+                    name: `[심볼] ${item[0]} ${item[1]}레벨`,
+                    cost: adjustedCost,
+                    eff100B: eff100B,
+                    actualIncrease: actualIncrease,
+                    img: item[4] || ""
+                });
             });
         }
 
@@ -182,7 +219,6 @@ function processSpecOrder(data, rawBookMark, config) {
                 const targetLevel = Number(hexaItem[1]) || 0;
                 const levelInfo = hexaItem[10] || `${targetLevel - 1}→${targetLevel}`;
 
-
                 const scoreItem7 = Number(hexaItem[7]) || 0;
                 const fragmentCount = Number(hexaItem[4]) || 0;
 
@@ -190,28 +226,45 @@ function processSpecOrder(data, rawBookMark, config) {
                 const actualIncrease = scoreItem7 * (fragmentCount / 30);
                 const eff100B = adjustedCost > 0 ? (actualIncrease / adjustedCost) * 100 : 0;
 
-                allItems.push({ category: '헥사', name: `[헥사] ${skillName} (${levelInfo})`, cost: adjustedCost, eff100B: eff100B, actualIncrease: actualIncrease, img: `https://maplescouter.com//${hexaItem[2]}` || "" });
+                allItems.push({
+                    category: '헥사',
+                    name: `[헥사] ${skillName} (${levelInfo})`,
+                    cost: adjustedCost,
+                    eff100B: eff100B,
+                    actualIncrease: actualIncrease,
+                    img: `https://maplescouter.com//${hexaItem[2]}` || ""
+                });
             });
         }
 
-        // D. 📌 북마크 파싱 (위치 계산을 위해 포함하되, 나중에 출력에서만 제외)
+        // D. 📌 북마크 파싱 (캐릭터 검증 포함)
+        const characterName = characterApi?.state?.searchResult?.userApiData?.info?.character_name || "Unknown";
         try {
             if (rawBookMark) {
                 const localData = JSON.parse(rawBookMark);
                 if (localData && localData.state && Array.isArray(localData.state.simulBookmarkList)) {
                     localData.state.simulBookmarkList.forEach(bookmark => {
+                        const bookmarkCharacterName = bookmark.character || "Unknown";
                         const weight = bookmark.noTrade ? untradeWeight : 1.0;
                         const finalCost = Number(bookmark.cost) * weight || 0;
                         const actualIncrease = Number(bookmark.eff) || 0;
-                        const eff100B = finalCost > 0 ? (actualIncrease / finalCost) * 100 : 0;
 
-                        allItems.push({ category: '북마크', name: `[북마크] ${bookmark.name}`, cost: 0, eff100B: 0, actualIncrease: actualIncrease, img: bookmark.img || "" });
+                        if (bookmarkCharacterName === characterName) {
+                            allItems.push({
+                                category: '북마크',
+                                name: `[북마크] ${bookmark.name}`,
+                                cost: 0,
+                                eff100B: 0,
+                                actualIncrease: actualIncrease,
+                                img: bookmark.img || ""
+                            });
+                        }
                     });
                 }
             }
         } catch (lmError) { }
 
-        // E. 100억당 효율 기준 정렬
+        // E. 100억당 효율 기준 정렬 (A, B, C, D 카테고리 전체가 eff100B 숫자 필드로 완벽하게 정렬됨)
         allItems.sort((a, b) => b.eff100B - a.eff100B);
 
         // F. 목표 도달 계산 (복리 누적)
@@ -223,15 +276,17 @@ function processSpecOrder(data, rawBookMark, config) {
             const item = allItems[i];
             selectedItemsIncludingBookmark.push(item);
             currentFdMultiplier *= (1 + (item.actualIncrease / 100));
-            accumulatedCost += item.cost;
+
+            const itemCostNum = typeof item.cost === 'number' ? item.cost : 0;
+            accumulatedCost += itemCostNum;
 
             const currentTotalFdPercent = (currentFdMultiplier - 1) * 100;
             if (currentTotalFdPercent >= targetFd) break;
         }
 
         const totalAchievedFd = (currentFdMultiplier - 1) * 100;
-
         const selectedItems = selectedItemsIncludingBookmark.filter(item => item.category !== '북마크');
+
         // G. 병합 및 그룹화
         const mergedSummaryList = mergeSelectedItems(selectedItems);
         const groupedCategory = {};
@@ -241,7 +296,8 @@ function processSpecOrder(data, rawBookMark, config) {
             groupedCategory[item.category].push(item);
         });
 
-        return { config, totalAchievedFd, accumulatedCost, selectedItems, mergedSummaryList, groupedCategory, allItems };
+        const statTime = new Date().toISOString();
+        return { config, totalAchievedFd, accumulatedCost, selectedItems, mergedSummaryList, groupedCategory, allItems, statTime };
     } catch (error) {
         console.error("❌ processSpecOrder 에러:", error.message);
         return null;
@@ -272,7 +328,8 @@ function runSpecOrderAnalysis() {
     chrome.storage.local.set({ scouterConfig: config });
 
     // 🔥 북마크 데이터(rawBookmarkData)도 함께 불러옵니다.
-    chrome.storage.local.get(['specOrderData', 'rawBookmarkData'], (result) => {
+    chrome.storage.local.get(['characterApiData', 'specOrderData', 'rawBookmarkData'], (result) => {
+        const characterApi = result.characterApiData;
         const data = result.specOrderData;
         const rawBookMark = result.rawBookmarkData;
         const container = document.getElementById('scouterResultContainer');
@@ -285,33 +342,44 @@ function runSpecOrderAnalysis() {
         if (container) container.innerHTML = `<div style="text-align:center; padding:20px; color:#666;">🔄 커스텀 설정을 반영하여 분석 중입니다...</div>`;
 
         // 북마크 데이터 포함하여 위치 계산
-        const analysisResult = processSpecOrder(data, rawBookMark, config);
-
+        const analysisResult = processSpecOrder(characterApi, data, rawBookMark, config);
         if (analysisResult && container) {
+            analysisResult.calculatedAt = new Date().toLocaleString('ko-KR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
             renderAnalysisUI(analysisResult, container);
-            
+
+            chrome.storage.local.set({ lastSpecResult: analysisResult }, () => {
+            });
+
             const selectedCount = analysisResult.selectedItems.length;
 
             const highlightNames = selectedCount > 0
                 ? [analysisResult.selectedItems[selectedCount - 1].name]
                 : [];
-            
+
             chrome.tabs.query(
                 {
                     active: true,
                     currentWindow: true
                 },
                 (tabs) => {
-            
+
                     const activeTab = tabs[0];
-            
+
                     if (!activeTab?.id) {
                         console.error(
                             "[MapleScouter] 활성 탭이 없습니다."
                         );
                         return;
                     }
-            
+
                     if (
                         !activeTab.url ||
                         !activeTab.url.includes("maplescouter.com")
@@ -322,7 +390,7 @@ function runSpecOrderAnalysis() {
                         );
                         return;
                     }
-            
+
                     chrome.tabs.sendMessage(
                         activeTab.id,
                         {
@@ -330,7 +398,7 @@ function runSpecOrderAnalysis() {
                             highlightNames: highlightNames
                         },
                         (response) => {
-            
+
                             if (chrome.runtime.lastError) {
                                 console.error(
                                     "[MapleScouter] 메시지 전송 실패:",
@@ -352,7 +420,10 @@ function runSpecOrderAnalysis() {
 function renderAnalysisUI(res, container) {
     let html = `
         <div style="background: #fff8ec; border: 1px solid #ffd591; padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 13px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <div style="font-weight: bold; color: #d46b08; margin-bottom: 5px;">📈 스펙업 최단 경로 요약</div>
+            <div style="font-size: 11px; color: #8c8c8c; margin-bottom: 8px;">🕒 분석 일시: ${res.calculatedAt || new Date().toLocaleString('ko-KR')}</div>        
+        </div>
             <div>총 필요 기댓값: <b style="color: #cf1322;">약 ${res.accumulatedCost.toFixed(2)}억 메소</b></div>
             <div>예상 최종뎀 상승: <b style="color: #389e0d;">+${res.totalAchievedFd.toFixed(3)}%</b> (목표: ${res.config.targetFd}%)</div>
         </div>
@@ -385,7 +456,7 @@ function renderAnalysisUI(res, container) {
                     : `<div style="width: 28px; height: 28px; background: #f5f5f5; border: 1px solid #e8e8e8; border-radius: 4px; margin-right: 10px; display:inline-flex; align-items:center; justify-content:center; font-size:12px;">💎</div>`;
 
                 const stepBadge = item.stepCount > 1 ? ` <span style="background: #e6f7ff; color: #096dd9; padding: 2px 5px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 4px;">${item.stepCount}단계 합산</span>` : '';
-
+                const costDisplay = typeof item.cost === 'number' ? `${item.cost.toFixed(2)}억` : item.cost;
                 html += `
                     <div style="display: flex; align-items: center; background: #ffffff; border: 1px solid #e8e8e8; border-radius: 6px; padding: 7px 9px; margin-bottom: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
                         ${imgTag}
@@ -394,7 +465,7 @@ function renderAnalysisUI(res, container) {
                                 ${item.name}${stepBadge}
                             </div>
                             <div style="font-size: 11px; color: #777; display: flex; justify-content: space-between;">
-                                <span>기댓값: <b style="color:#fa8c16;">${item.cost.toFixed(2)}억</b></span>
+                                <span>기댓값: <b style="color:#fa8c16;">${costDisplay}</b></span>
                                 <span>최종뎀: <b style="color:#52c41a;">+${item.actualIncrease.toFixed(3)}%</b></span>
                             </div>
                         </div>
@@ -418,6 +489,7 @@ function renderAnalysisUI(res, container) {
             ? `<img src="${item.img}" style="width: 24px; height: 24px; object-fit: contain; margin-right: 8px; border-radius: 3px;">`
             : `<div style="width: 24px; height: 24px; background: #f0f0f0; border-radius: 3px; margin-right: 8px; display:inline-flex; align-items:center; justify-content:center; font-size:10px;">${idx + 1}</div>`;
 
+        const costDisplay = typeof item.cost === 'number' ? `${item.cost.toFixed(2)}억` : item.cost;
         html += `
             <div style="display: flex; align-items: center; background: #fff; border: 1px solid #eee; border-radius: 5px; padding: 6px 8px; margin-bottom: 5px;">
                 <span style="font-size: 11px; font-weight: bold; color: #888; width: 22px;">#${idx + 1}</span>
@@ -425,7 +497,7 @@ function renderAnalysisUI(res, container) {
                 <div style="flex: 1; overflow: hidden;">
                     <div style="font-weight: 500; font-size: 11px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</div>
                     <div style="font-size: 10px; color: #888; margin-top: 1px;">
-                        기댓값: <b style="color:#fa8c16;">${item.cost.toFixed(2)}억</b> | 상승: <b style="color:#52c41a;">+${item.actualIncrease.toFixed(3)}%</b>
+                        기댓값: <b style="color:#fa8c16;">${costDisplay}</b> | 상승: <b style="color:#52c41a;">+${item.actualIncrease.toFixed(3)}%</b>
                     </div>
                 </div>
             </div>

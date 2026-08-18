@@ -35,7 +35,9 @@ npm test -- --runInBand
 ## 문서
 
 - [사용자 가이드 원본](docs/gitbook/README.md) — GitBook에 옮겨 게시할 Markdown 문서
+- [최근 릴리스 노트](docs/gitbook/release-notes.md) — v1.1.1~v1.1.2 스펙업 분석 개선 사항
 - [프로젝트 회고 초안](docs/blog/2026-08-maple-auction-scouter-retrospective.md) — 블로그 게시용 원고
+- [개발 회고 2: 분석기와 운영 설계](docs/blog/2026-08-analysis-and-operations-retrospective.md) — 역공학·Remote Config 회고
 - [스크린샷 촬영 체크리스트](docs/assets/screenshots/README.md)
 
 ## 면책 조항

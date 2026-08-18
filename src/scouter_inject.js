@@ -9,13 +9,16 @@
         if (typeof url === 'string' && url.includes('/api/calc/spec-order')) {
             response.clone().json().then(data => {
                 let bookmarkData = {};
+                let characterApi = {};
                 try {
                     bookmarkData = localStorage.getItem('bookMarkSimulList');
+                    characterApi = localStorage.getItem('character-store');
                 } catch (e) {}
 
                 window.postMessage({
                     type: "MAPLESCOUTER_SPEC_DATA_INTERCEPTED",
                     payload: {
+                        characterApi : characterApi,
                         specOrder: data,
                         bookmarks: bookmarkData 
                     }
