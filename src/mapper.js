@@ -83,10 +83,10 @@ function mapToCalcFormat(auctionItem) {
     const rawSlot = t.categories[0] || "기타";
     const rawPart = t.categories[1] || "기타"; 
 
-    const mappedSlot = rawSlot;
-    const mappedPart = rawPart;
+    let mappedSlot = rawSlot;
+    let mappedPart = rawPart;
 
-    if (PART_EQUALS_SLOT.contain(mappedSlot)) {
+    if (PART_EQUALS_SLOT.includes(mappedSlot)) {
         mappedPart = mappedSlot;
     }
 
