@@ -606,7 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 "무기", "보조무기", "포스실드", "엠블렘", "기계 심장",
                 "벨트", "모자", "얼굴장식", "눈장식",
                 "상의", "하의", "신발", "귀고리",
-                "어깨장식", "장갑", "망토", "배지", "훈장"
+                "어깨장식", "장갑", "망토", "배지", "훈장", "포켓 아이템"
             ];
 
             items = items.filter(item => VALID_SLOTS.includes(item.slot));
