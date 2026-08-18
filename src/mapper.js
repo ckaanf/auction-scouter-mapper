@@ -3,6 +3,15 @@ function mapToCalcFormat(auctionItem) {
     const upgrade = t.upgradeInfo || {};
     const job = t.reqJob || "";
 
+    const PART_EQUALS_SLOT = [
+    "반지", "반지1", "반지2", "반지3", "반지4",
+    "펜던트", "펜던트1", "펜던트2",
+    "포스실드", "엠블렘", "기계 심장",
+    "벨트", "모자", "얼굴장식", "눈장식",
+    "상의", "하의", "신발", "귀고리",
+    "어깨장식", "장갑", "망토", "배지", "훈장", "포켓 아이템"
+    ];
+
     // 직업별 유효 스탯 필터링 조건 보강 (데몬 직업군 및 하위 전사 직업 대응)
     const getValidKeysForJob = (jobName) => {
         if (jobName.includes("전사") || jobName.includes("데몬") || jobName.includes("아란") || jobName.includes("카이저") || jobName.includes("미하일")) {
@@ -74,15 +83,12 @@ function mapToCalcFormat(auctionItem) {
     const rawSlot = t.categories[0] || "기타";
     const rawPart = t.categories[1] || "기타"; 
 
-    let mappedSlot = rawSlot;
-    let mappedPart = rawPart;
+    const mappedSlot = rawSlot;
+    const mappedPart = rawPart;
 
-    if (["보조무기"].includes(rawSlot)) {
-        mappedSlot = rawSlot || "보조무기";
+    if (PART_EQUALS_SLOT.contain(mappedSlot)) {
+        mappedPart = mappedSlot;
     }
-
-
-
 
     let mappedClassGroup = "도적";
     if (job.includes("전사") || job.includes("데몬") || job.includes("아란") || job.includes("카이저") || job.includes("미하일")) {
