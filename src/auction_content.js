@@ -17,6 +17,9 @@ const VALID_SLOTS = [
     "어깨장식", "장갑", "망토", "배지", "훈장", "포켓 아이템"
 ];
 
+// 안전한 ID 문자열 변환 함수
+const toSnStr = (val) => (val !== undefined && val !== null ? String(val) : '');
+
 window.addEventListener('message', (event) => {
     if (event.source !== window) return;
 
@@ -25,14 +28,18 @@ window.addEventListener('message', (event) => {
         const newData = event.data.payload;
         if (!newData || !newData.items || !Array.isArray(newData.items)) return;
 
+        // 경매장 전체 목록 조회가 맞는지 확인 플래그 (API 응답 구조에 따라 필요 시 추가/조정)
+        const isFullListFetch = event.data.isFullList === true; 
+
         const filteredItems = newData.items.filter(newItem => {
             const t = newItem.toolTip;
             if (!t || !t.categories) return false;
 
-            const slot =  t.categories[0] || t.categories[1] || "";
-            const isCash= newItem.isCash;
+            const part = t.categories[0] || "";
+            const slot = t.categories[1] || "";
+            const isCash = newItem.isCash;
             
-            return !isCash && VALID_SLOTS.includes(slot);
+            return !isCash && (VALID_SLOTS.includes(slot) || VALID_SLOTS.includes(part));
         });
 
         chrome.storage.local.get(['auctionWishlist'], (result) => {
@@ -42,28 +49,28 @@ window.addEventListener('message', (event) => {
             let unwishedCount = 0;
             let skippedCount = newData.items.length - filteredItems.length;
 
-            // 2. [역방향 감지] 새로 불러온 데이터(filteredItems)에 없는 기존 아이템들을 '찜 해제/만료의심' 상태로 일괄 변경
-            // 이번 통신 데이터에 존재하는 모든 tradeSn 목록 수집 (타입 일치를 위해 String 처리)
-            const newTradeSns = filteredItems.map(item => String(item.tradeSn));
+            const newTradeSns = filteredItems.map(item => toSnStr(item.tradeSn));
 
-            existingItems = existingItems.map(oldItem => {
-                const oldTradeSnStr = String(oldItem.tradeSn);
-                // 기존 보관소에 있는데 새로 받아온 경매장 찜목록에는 없다면 -> 찜 해제(만료의심) 상태로 전환!
-                if (!newTradeSns.includes(oldTradeSnStr)) {
-                    if (!oldItem.isUnwished) {
-                        oldItem.isUnwished = true;
-                        unwishedCount++;
+            // 2. [역방향 감지] 전체 목록 조회일 때만 안전하게 처리 (페이지네이션 오작동 방지)
+            if (isFullListFetch) {
+                existingItems = existingItems.map(oldItem => {
+                    const oldTradeSnStr = toSnStr(oldItem.tradeSn);
+                    if (!newTradeSns.includes(oldTradeSnStr)) {
+                        if (!oldItem.isUnwished) {
+                            oldItem.isUnwished = true;
+                            unwishedCount++;
+                        }
                     }
-                }
-                return oldItem;
-            });
+                    return oldItem;
+                });
+            }
 
             // 3. [정방향 업데이트 및 병합] 새로 받아온 데이터 동기화
             filteredItems.forEach(newItem => {
                 const isProductClosed = newItem.status && newItem.status !== 'ON_SALE';
-                const newTradeSnStr = String(newItem.tradeSn);
+                const newTradeSnStr = toSnStr(newItem.tradeSn);
 
-                const existingIndex = existingItems.findIndex(item => String(item.tradeSn) === newTradeSnStr);
+                const existingIndex = existingItems.findIndex(item => toSnStr(item.tradeSn) === newTradeSnStr);
 
                 if (existingIndex > -1) {
                     existingItems[existingIndex].isUnwished = false;
@@ -94,7 +101,7 @@ window.addEventListener('message', (event) => {
     // [2] DELETE 통신 (찜 해제) -> 상태 플래그 변경
     if (event.data.type === 'AUCTION_WISHLIST_DELETED') {
         const { tradeSn } = event.data.payload;
-        const targetTradeSnStr = String(tradeSn);
+        const targetTradeSnStr = toSnStr(tradeSn);
 
         chrome.storage.local.get(['auctionWishlist'], (result) => {
             if (result.auctionWishlist && Array.isArray(result.auctionWishlist.items)) {
@@ -102,7 +109,7 @@ window.addEventListener('message', (event) => {
                 let updated = false;
 
                 items = items.map(item => {
-                    if (String(item.tradeSn) === targetTradeSnStr) {
+                    if (toSnStr(item.tradeSn) === targetTradeSnStr) {
                         item.isUnwished = true;
                         updated = true;
                     }
