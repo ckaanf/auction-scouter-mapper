@@ -1,3 +1,29 @@
+const REMOTE_CONFIG_URL = "https://gist.githubusercontent.com/ckaanf/0b4dc45cd2a73c4f0135500ee0c8ed38/raw/maple_scouter_config.json";
+
+chrome.runtime.onInstalled.addListener(() => {
+    fetchRemoteConfig();
+    chrome.alarms.create("updateConfig", { periodInMinutes: 60 });
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === "updateConfig") {
+        fetchRemoteConfig();
+    }
+});
+
+async function fetchRemoteConfig() {
+    try {
+        const cacheBusterUrl = `${REMOTE_CONFIG_URL}?t=${Date.now()}`;
+        const res = await fetch(cacheBusterUrl);
+        const data = await res.json();
+        chrome.storage.local.set({ remoteConfig: data });
+    } catch (e) {
+        console.warn("원격 설정 동기화 실패", e);
+    }
+}
+
+
+
 function waitForTabToComplete(tabId) {
     return new Promise((resolve) => {
         const listener = (changeTabId, changeInfo) => {
@@ -80,8 +106,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                             };
 
                             let existingData = localStorage.getItem('equipBookmarkList');
-                            let parsedData = (runMode === 'EXPORT' && existingData) 
-                                ? JSON.parse(existingData) 
+                            let parsedData = (runMode === 'EXPORT' && existingData)
+                                ? JSON.parse(existingData)
                                 : { state: { bookmarkList: [] }, version: 0 };
 
                             if (!parsedData.state) parsedData.state = {};
@@ -102,7 +128,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                             localStorage.setItem('equipBookmarkList', JSON.stringify(orderedRoot));
                             alert(runMode === 'EXPORT' ? '성공적으로 환산 아이템메이커에 추가되었습니다.' : '성공적으로 선택한 캐릭터 보관함 세트로 동기화되었습니다.');
-                            
+
                             setTimeout(() => {
                                 location.reload();
                             }, 50);
@@ -118,6 +144,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
         })();
 
-        return false; 
+        return false;
     }
 });

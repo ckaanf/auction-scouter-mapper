@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "메이플 환산 아이템메이커 브릿지",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "description": "메이플스토리 웹 경매장 찜 목록을 환산 주스탯 사이트로 내보내고, 환산기 스펙업 순서를 분석합니다.",
   "permissions": [
     "storage",
     "activeTab",
     "scripting",
-    "tabs"
+    "tabs",
+    "alarms"
   ],
   "host_permissions": [
     "*://*.nexon.com/*",
