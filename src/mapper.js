@@ -86,8 +86,8 @@ function mapToCalcFormat(auctionItem) {
     let mappedSlot = rawSlot;
     let mappedPart = rawPart;
 
-    if (PART_EQUALS_SLOT.includes(mappedSlot)) {
-        mappedPart = mappedSlot;
+    if (PART_EQUALS_SLOT.includes(mappedPart)) {
+      mappedSlot = mappedPart;
     }
 
     let mappedClassGroup = "도적";
