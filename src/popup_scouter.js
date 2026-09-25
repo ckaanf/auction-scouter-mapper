@@ -250,13 +250,15 @@ function processSpecOrder(characterApi, data, rawBookMark, config) {
                         const actualIncrease = Number(bookmark.eff) || 0;
 
                         if (bookmarkCharacterName === characterName) {
+                            const eff100B = finalCost > 0 ? (actualIncrease / finalCost) * 100 : 0;
                             allItems.push({
                                 category: '북마크',
-                                name: `[북마크] ${bookmark.name}`,
-                                cost: 0,
-                                eff100B: 0,
+                                name: bookmark.name.startsWith('[북마크]') ? bookmark.name : `[북마크] ${bookmark.name}`,
+                                cost: finalCost,
+                                eff100B: eff100B,
                                 actualIncrease: actualIncrease,
-                                img: bookmark.img || ""
+                                img: bookmark.img || "",
+                                isPaidBookmark: finalCost > 0
                             });
                         }
                     });
@@ -285,7 +287,7 @@ function processSpecOrder(characterApi, data, rawBookMark, config) {
         }
 
         const totalAchievedFd = (currentFdMultiplier - 1) * 100;
-        const selectedItems = selectedItemsIncludingBookmark.filter(item => item.category !== '북마크');
+        const selectedItems = selectedItemsIncludingBookmark.filter(item => item.category !== '북마크' || item.isPaidBookmark);
 
         // G. 병합 및 그룹화
         const mergedSummaryList = mergeSelectedItems(selectedItems);

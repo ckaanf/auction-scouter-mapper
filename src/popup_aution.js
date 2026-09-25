@@ -19,15 +19,17 @@ function formatPrice(rawPrice) {
     return result.join(' ') + ' 메소';
 }
 
-function showModal(message, callback) {
+function showModal(message, callback, defaultValue = '') {
     const modal = document.getElementById('charNameModal');
     const msg = document.getElementById('modalMessage');
     const input = document.getElementById('modalInput');
     const confirmBtn = document.getElementById('modalConfirmBtn');
 
     msg.textContent = message;
+    input.value = defaultValue || '';
     modal.style.display = 'flex';
     input.focus();
+    if (input.value) input.select();
 
     input.onkeydown = (e) => {
         if (e.key === 'Enter') {
@@ -143,42 +145,210 @@ document.addEventListener('DOMContentLoaded', () => {
     const itemList = document.getElementById('itemList');
     const selectAllCheckbox = document.getElementById('selectAll');
     const exportBtn = document.getElementById('exportBtn');
+    const exportSimulBtn = document.getElementById('exportSimulBtn');
     const clearAllBtn = document.getElementById('clearAllBtn');
     const clearCheckBtn = document.getElementById('clearCheckBtn');
+    const calcCharSelect = document.getElementById('calcCharSelect');
+    const auctionSortSelect = document.getElementById('auctionSortSelect');
 
     let auctionItems = [];
     let savedFolders = [];
     let importedItemsTemp = [];
+    let cachedCharContext = null;
+    let charStoreCacheMap = {};
+    let activeCalcCharName = '';
+    let currentSortMode = 'default';
+
+    function syncCharSelectUI() {
+        if (!calcCharSelect) return;
+        calcCharSelect.innerHTML = '';
+        const charNames = Object.keys(charStoreCacheMap);
+        if (charNames.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = '(환산 조회 캐릭 없음)';
+            calcCharSelect.appendChild(opt);
+            return;
+        }
+        charNames.forEach(cName => {
+            const entry = charStoreCacheMap[cName];
+            const opt = document.createElement('option');
+            opt.value = cName;
+            opt.textContent = entry?.level ? `${cName} (Lv.${entry.level})` : cName;
+            if (cName === activeCalcCharName) opt.selected = true;
+            calcCharSelect.appendChild(opt);
+        });
+    }
+
+    if (calcCharSelect) {
+        calcCharSelect.addEventListener('change', () => {
+            const selectedName = calcCharSelect.value;
+            if (selectedName && charStoreCacheMap[selectedName]?.rawStore && window.FDCalculator) {
+                activeCalcCharName = selectedName;
+                cachedCharContext = window.FDCalculator.parseCharacterStore(charStoreCacheMap[selectedName].rawStore);
+                chrome.storage.local.set({
+                    activeCalcCharName: selectedName,
+                    characterApiData: charStoreCacheMap[selectedName].rawStore
+                });
+                renderItems();
+            }
+        });
+    }
+
+    if (auctionSortSelect) {
+        auctionSortSelect.addEventListener('change', () => {
+            currentSortMode = auctionSortSelect.value || 'default';
+            chrome.storage.local.set({ auctionSortMode: currentSortMode });
+            renderItems();
+        });
+    }
+
+    // 열려 있는 환산 사이트 탭에서 최신 character-store 자동 동기화 및 다중 캐시 병합
+    function syncOpenScouterTabsToCache() {
+        if (!chrome.tabs || !window.FDCalculator) return;
+        chrome.tabs.query({ url: "*://*.maplescouter.com/*" }, (tabs) => {
+            if (!tabs || tabs.length === 0) return;
+            tabs.forEach(tab => {
+                chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    func: () => localStorage.getItem('character-store')
+                }).then((results) => {
+                    const rawStore = results?.[0]?.result;
+                    if (!rawStore) return;
+                    const parsedCtx = window.FDCalculator.parseCharacterStore(rawStore);
+                    if (parsedCtx && parsedCtx.charName && parsedCtx.charName !== 'Unknown') {
+                        charStoreCacheMap[parsedCtx.charName] = {
+                            rawStore,
+                            level: parsedCtx.charLevel,
+                            updatedAt: Date.now()
+                        };
+                        if (!activeCalcCharName) {
+                            activeCalcCharName = parsedCtx.charName;
+                            cachedCharContext = parsedCtx;
+                        }
+                        chrome.storage.local.set({
+                            characterStoreCache: charStoreCacheMap,
+                            activeCalcCharName
+                        });
+                        syncCharSelectUI();
+                        renderItems();
+                    }
+                }).catch(() => {});
+            });
+        });
+    }
 
     // =========================================
     // [Section 4] 데이터 통합 로드 및 찜 목록 렌더링
     // =========================================
     function loadData() {
-        chrome.storage.local.get(['auctionWishlist', 'wishlistFolders'], (result) => {
-            if (result.wishlistFolders && Array.isArray(result.wishlistFolders.folders)) {
-                savedFolders = result.wishlistFolders.folders;
-            } else {
-                savedFolders = [];
-            }
-            updateFolderSelectOptions();
+        chrome.storage.local.get(
+            ['auctionWishlist', 'wishlistFolders', 'characterApiData', 'characterStoreCache', 'activeCalcCharName', 'auctionSortMode'],
+            (result) => {
+                charStoreCacheMap = result.characterStoreCache || {};
+                currentSortMode = result.auctionSortMode || 'default';
+                if (auctionSortSelect) auctionSortSelect.value = currentSortMode;
 
-            if (result.auctionWishlist && result.auctionWishlist.items && result.auctionWishlist.items.length > 0) {
-                auctionItems = result.auctionWishlist.items;
-                renderItems();
-                selectAllCheckbox.disabled = false;
-                exportBtn.disabled = false;
-            } else {
-                auctionItems = [];
-                itemList.innerHTML = '<div class="empty-msg">저장된 찜 목록이 없습니다.<br>메이플 경매장 찜 목록 페이지를 방문해주세요.</div>';
-                selectAllCheckbox.disabled = true;
-                exportBtn.disabled = true;
+                if (result.characterApiData && window.FDCalculator) {
+                    const parsedLatest = window.FDCalculator.parseCharacterStore(result.characterApiData);
+                    if (parsedLatest && parsedLatest.charName && parsedLatest.charName !== 'Unknown') {
+                        charStoreCacheMap[parsedLatest.charName] = {
+                            rawStore: result.characterApiData,
+                            level: parsedLatest.charLevel,
+                            updatedAt: Date.now()
+                        };
+                    }
+                }
+
+                const availableNames = Object.keys(charStoreCacheMap);
+                if (result.activeCalcCharName && charStoreCacheMap[result.activeCalcCharName]) {
+                    activeCalcCharName = result.activeCalcCharName;
+                } else if (availableNames.length > 0) {
+                    activeCalcCharName = availableNames[availableNames.length - 1];
+                }
+
+                if (activeCalcCharName && charStoreCacheMap[activeCalcCharName]?.rawStore && window.FDCalculator) {
+                    cachedCharContext = window.FDCalculator.parseCharacterStore(charStoreCacheMap[activeCalcCharName].rawStore);
+                } else if (result.characterApiData && window.FDCalculator) {
+                    cachedCharContext = window.FDCalculator.parseCharacterStore(result.characterApiData);
+                }
+
+                syncCharSelectUI();
+                syncOpenScouterTabsToCache();
+
+                if (result.wishlistFolders && Array.isArray(result.wishlistFolders.folders)) {
+                    savedFolders = result.wishlistFolders.folders;
+                } else {
+                    savedFolders = [];
+                }
+                updateFolderSelectOptions();
+
+                if (result.auctionWishlist && result.auctionWishlist.items && result.auctionWishlist.items.length > 0) {
+                    auctionItems = result.auctionWishlist.items;
+                    renderItems();
+                    selectAllCheckbox.disabled = false;
+                    exportBtn.disabled = false;
+                    if (exportSimulBtn) exportSimulBtn.disabled = false;
+                } else {
+                    auctionItems = [];
+                    itemList.innerHTML = '<div class="empty-msg">저장된 찜 목록이 없습니다.<br>메이플 경매장 찜 목록 페이지를 방문해주세요.</div>';
+                    selectAllCheckbox.disabled = true;
+                    exportBtn.disabled = true;
+                    if (exportSimulBtn) exportSimulBtn.disabled = true;
+                }
             }
-        });
+        );
     }
 
     function renderItems() {
         itemList.innerHTML = '';
-        auctionItems.forEach((item, index) => {
+
+        // 정렬 및 렌더링을 위한 사전 평가 메타데이터 생성 (원본 인덱스 originalIndex 보존)
+        const preparedList = auctionItems.map((item, originalIndex) => {
+            let mappedPreview = null;
+            let fdCalc = { eff: 0, hwanDiff: 0, hexaDiff: 0 };
+            let craftEval = { isEvaluated: false, diffPct: 999 };
+            const rawPrice = Number(item?.price || 0);
+            const priceEok = rawPrice > 0 ? rawPrice / 100000000 : 0;
+
+            if (window.FDCalculator) {
+                try {
+                    mappedPreview = mapToCalcFormat(item);
+                    fdCalc = window.FDCalculator.calculateItemFdIncrease(mappedPreview, cachedCharContext);
+                    if (window.FDCalculator.evaluateCraftVsBuy) {
+                        craftEval = window.FDCalculator.evaluateCraftVsBuy(item, mappedPreview);
+                    }
+                } catch (e) {}
+            }
+
+            const effPer10B = (priceEok > 0 && fdCalc.eff > 0) ? (fdCalc.eff / priceEok) * 10 : -999;
+
+            return {
+                item,
+                originalIndex,
+                fdCalc,
+                craftEval,
+                priceEok,
+                effPer10B
+            };
+        });
+
+        // 선택한 정렬 모드(currentSortMode) 적용
+        if (currentSortMode === 'fd_desc') {
+            preparedList.sort((a, b) => b.fdCalc.eff - a.fdCalc.eff);
+        } else if (currentSortMode === 'eff_desc') {
+            preparedList.sort((a, b) => b.effPer10B - a.effPer10B);
+        } else if (currentSortMode === 'deal_desc') {
+            preparedList.sort((a, b) => {
+                const aScore = a.craftEval.isEvaluated ? a.craftEval.diffPct : 9999;
+                const bScore = b.craftEval.isEvaluated ? b.craftEval.diffPct : 9999;
+                return aScore - bScore;
+            });
+        } else if (currentSortMode === 'price_asc') {
+            preparedList.sort((a, b) => (a.priceEok || Infinity) - (b.priceEok || Infinity));
+        }
+
+        preparedList.forEach(({ item, originalIndex, fdCalc, craftEval }) => {
             const isClosed = item.isClosed === true;
             const isUnwished = item.isUnwished === true;
 
@@ -187,7 +357,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isUnwished) label.classList.add('unwished');
             if (isClosed) label.classList.add('closed');
             
-            const checkboxUI = createUIItemCheckbox(index, false, 'wishlist-target');
+            const checkboxUI = createUIItemCheckbox(originalIndex, false, 'wishlist-target');
 
             const img = document.createElement('img');
             img.src = item.itemIcon?.fallBackUrl || "";
@@ -224,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const gradeInfo = gradeMap[potential.grade];
                 const potentialGrade = document.createElement('span');
                 potentialGrade.className = `rank-badge ${gradeInfo.class}`;
-                potentialGrade.textContent = gradeInfo.text; // 예: 'Legendary', 'Unique' 등
+                potentialGrade.textContent = gradeInfo.text;
                 headerDiv.appendChild(potentialGrade);
             }
 
@@ -233,7 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const gradeInfo = gradeMap[additionalPotential.grade];
                 const additionalPotentialGrade = document.createElement('span');
                 additionalPotentialGrade.className = `rank-badge ${gradeInfo.class}`;
-                additionalPotentialGrade.textContent = gradeInfo.text; // 예: 'Legendary', 'Unique' 등
+                additionalPotentialGrade.textContent = gradeInfo.text;
                 headerDiv.appendChild(additionalPotentialGrade);
             }
 
@@ -243,6 +413,33 @@ document.addEventListener('DOMContentLoaded', () => {
             priceSpan.className = 'item-price';
             priceSpan.textContent = formatPrice(item.price);
             infoDiv.appendChild(priceSpan);
+
+            // 1) 로컬 역공학 최종뎀 증가량(eff) 및 일반/헥사 환산 배지 표시
+            if (window.FDCalculator) {
+                const fdDiv = document.createElement('div');
+                fdDiv.style.fontSize = '11px';
+                fdDiv.style.marginTop = '3px';
+                fdDiv.style.fontWeight = 'bold';
+                fdDiv.style.color = fdCalc.eff >= 0 ? '#d9480f' : '#495057';
+
+                const sign = fdCalc.eff >= 0 ? '+' : '';
+                const hwanSign = fdCalc.hwanDiff >= 0 ? '+' : '';
+                const hexaSign = fdCalc.hexaDiff >= 0 ? '+' : '';
+
+                fdDiv.textContent = `⚡ 최종뎀 ${sign}${fdCalc.eff}% (환산 ${hwanSign}${fdCalc.hwanDiff} / 헥사 ${hexaSign}${fdCalc.hexaDiff})`;
+                infoDiv.appendChild(fdDiv);
+
+                // 2) [신규 Feature 3] 직작 원가 대비 경매장 매물 손익분기(꿀매/적정/직작추천) 배지 표시
+                if (craftEval && craftEval.isEvaluated) {
+                    const craftDiv = document.createElement('div');
+                    craftDiv.style.fontSize = '10.5px';
+                    craftDiv.style.marginTop = '2px';
+                    craftDiv.style.fontWeight = '600';
+                    craftDiv.style.color = craftEval.color;
+                    craftDiv.textContent = craftEval.badgeText;
+                    infoDiv.appendChild(craftDiv);
+                }
+            }
 
             const badgeContainer = document.createElement('div');
             badgeContainer.className = 'badge-container';
@@ -785,7 +982,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         alert('캐릭터명이 입력되지 않아 아이템 추가 작업을 취소합니다.');
                     }
-                });
+                }, activeCalcCharName || cachedCharContext?.charName || '');
             } else {
                 alert('아이템 추가 작업이 취소되었습니다. 환산 주스텟 - 아이템메이커 화면에서 다시 실행해 주세요.');
             }
@@ -809,7 +1006,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         "totalOption", "baseOption", "addOption", "etcOption", "starforceOption",
                         "potential_grade", "potential_option_1", "additional_potential_grade", "additional_potential_option_1",
                         "exceptionalOption", "hasExceptional", "soul_name", "soul_option", "ring_level", "itemScore",
-                        "character_name", "class_group", "cuttable_count", "title", "bookMark", "isEquipped"
+                        "character_name", "class_group", "cuttable_count", "title", "bookMark", "isEquipped",
+                        "soul_potential_option_1", "soul_atk", "soul_potential_grade", "soul_potential_amplified_grade"
                     ];
 
                     const statOrder = [
@@ -872,6 +1070,63 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('[Popup] 주입 리로드 정상 예외 처리:', err);
         });
     });
+
+    // =========================================
+    // [Section 9-2] 찜 목록 -> 스펙업 순서 추가스펙(bookMarkSimulList)으로 바로 추가
+    // (아이템메이커와 동일하게 캐릭터 이름을 입력받아 /ko/spec-order 페이지로 이동 후 주입)
+    // =========================================
+    if (exportSimulBtn) {
+        exportSimulBtn.addEventListener('click', async () => {
+            const checkboxes = document.querySelectorAll('.wishlist-target:checked');
+            const selectedRawItems = Array.from(checkboxes).map(cb => auctionItems[cb.value]);
+
+            if (selectedRawItems.length === 0) {
+                alert('스펙업 순서(추가스펙)로 내보낼 아이템을 먼저 선택해주세요.');
+                return;
+            }
+
+            if (!window.FDCalculator) {
+                alert('최종뎀 계산 모듈(fd_calculator.js)이 로드되지 않았습니다.');
+                return;
+            }
+
+            showModal('이동할 캐릭터 이름을 입력해주세요:', (charName) => {
+                if (charName && charName.trim()) {
+                    const targetChar = charName.trim();
+                    const targetContext = (charStoreCacheMap[targetChar]?.rawStore)
+                        ? window.FDCalculator.parseCharacterStore(charStoreCacheMap[targetChar].rawStore)
+                        : (cachedCharContext?.charName === targetChar ? cachedCharContext : null);
+
+                    const simulPayloads = selectedRawItems.map(rawItem => {
+                        const mapped = mapToCalcFormat(rawItem);
+                        const built = window.FDCalculator.buildSimulBookmarkEntry(
+                            rawItem,
+                            mapped,
+                            targetContext,
+                            targetChar
+                        );
+                        return {
+                            rawItem: { price: rawItem.price },
+                            mappedItem: mapped,
+                            fallbackEntry: built.bookmarkEntry
+                        };
+                    });
+
+                    const targetUrl = `https://maplescouter.com/ko/spec-order?name=${encodeURIComponent(targetChar)}&preset=00000`;
+                    chrome.runtime.sendMessage({
+                        action: 'OPEN_AND_INJECT',
+                        url: targetUrl,
+                        items: simulPayloads,
+                        folderName: targetChar,
+                        mode: 'EXPORT_SIMUL'
+                    }).catch(() => {});
+                    window.close();
+                } else {
+                    alert('캐릭터명이 입력되지 않아 추가스펙 등록 작업을 취소합니다.');
+                }
+            }, activeCalcCharName || cachedCharContext?.charName || '');
+        });
+    }
 
     // =========================================
     // [Section 10] 보관함 폴더 -> 환산 사이트로 덮어쓰기 (Swap)

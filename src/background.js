@@ -46,10 +46,94 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                 await waitForTabToComplete(newTab.id);
                 await new Promise(resolve => setTimeout(resolve, 1200));
+
+                if (mode === 'EXPORT_SIMUL') {
+                    await chrome.scripting.executeScript({
+                        target: { tabId: newTab.id },
+                        files: ['src/fd_calculator.js']
+                    });
+                }
+
                 await chrome.scripting.executeScript({
                     target: { tabId: newTab.id },
-                    func: (itemsToOverwrite, fName, runMode) => {
+                    func: async (itemsToOverwrite, fName, runMode) => {
                         try {
+                            if (runMode === 'EXPORT_SIMUL') {
+                                // 이동한 spec-order 페이지에서 입력받은 캐릭터(fName)의 character-store 로드 대기 (최대 3초)
+                                let liveContext = null;
+                                if (window.FDCalculator) {
+                                    for (let retry = 0; retry < 20; retry++) {
+                                        const rawStore = localStorage.getItem('character-store');
+                                        if (rawStore) {
+                                            const parsedCtx = window.FDCalculator.parseCharacterStore(rawStore);
+                                            if (parsedCtx && (!fName || parsedCtx.charName === fName)) {
+                                                liveContext = parsedCtx;
+                                                break;
+                                            }
+                                        }
+                                        await new Promise(r => setTimeout(r, 250));
+                                    }
+                                }
+
+                                const finalEntries = itemsToOverwrite.map(payload => {
+                                    if (payload && payload.mappedItem && window.FDCalculator && liveContext) {
+                                        return window.FDCalculator.buildSimulBookmarkEntry(
+                                            payload.rawItem,
+                                            payload.mappedItem,
+                                            liveContext,
+                                            fName
+                                        ).bookmarkEntry;
+                                    }
+                                    const entry = payload?.fallbackEntry || payload;
+                                    return { ...entry, character: fName || entry.character };
+                                });
+
+                                let existingSimul = localStorage.getItem('bookMarkSimulList');
+                                let parsedSimul = { state: { simulBookmarkList: [] }, version: 0 };
+                                if (existingSimul) {
+                                    try {
+                                        parsedSimul = JSON.parse(existingSimul) || parsedSimul;
+                                    } catch (e) {
+                                        console.warn('bookMarkSimulList JSON 파싱 오류, 초기화 후 진행합니다:', e);
+                                    }
+                                }
+
+                                if (!parsedSimul.state) parsedSimul.state = {};
+                                if (!Array.isArray(parsedSimul.state.simulBookmarkList)) {
+                                    parsedSimul.state.simulBookmarkList = [];
+                                }
+
+                                finalEntries.forEach(newEntry => {
+                                    const dupIdx = parsedSimul.state.simulBookmarkList.findIndex(
+                                        b => b.name === newEntry.name && b.character === newEntry.character
+                                    );
+                                    if (dupIdx >= 0) {
+                                        parsedSimul.state.simulBookmarkList[dupIdx] = newEntry;
+                                    } else {
+                                        parsedSimul.state.simulBookmarkList.push(newEntry);
+                                    }
+                                });
+
+                                const simulRoot = {
+                                    state: {
+                                        simulBookmarkList: parsedSimul.state.simulBookmarkList
+                                    },
+                                    version: parsedSimul.version ?? 0
+                                };
+
+                                localStorage.setItem('bookMarkSimulList', JSON.stringify(simulRoot));
+
+                                const summaryLines = finalEntries.map(
+                                    e => `• ${e.name}\n   ➔ 최종뎀: ${e.eff >= 0 ? '+' : ''}${e.eff}% / 비용: ${e.cost}억 (${e.character})`
+                                ).join('\n');
+
+                                alert(`성공적으로 '${fName}' 캐릭터의 스펙업 순서 [추가스펙]에 등록되었습니다!\n\n${summaryLines}`);
+                                setTimeout(() => {
+                                    location.reload();
+                                }, 50);
+                                return;
+                            }
+
                             if (runMode === 'SWAP') {
                                 const confirmSwapOnSite = confirm(`'${fName}' 보관함의 아이템 세트(${itemsToOverwrite.length}개)로 환산 사이트 데이터를 교체(Swap)하시겠습니까?\n기존에 환산 사이트에 등록되어 있던 세트 목록은 덮어씌워집니다.`);
                                 if (!confirmSwapOnSite) {
@@ -63,7 +147,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                                 "totalOption", "baseOption", "addOption", "etcOption", "starforceOption",
                                 "potential_grade", "potential_option_1", "additional_potential_grade", "additional_potential_option_1",
                                 "exceptionalOption", "hasExceptional", "soul_name", "soul_option", "ring_level", "itemScore",
-                                "character_name", "class_group", "cuttable_count", "title", "bookMark", "isEquipped"
+                                "character_name", "class_group", "cuttable_count", "title", "bookMark", "isEquipped",
+                                "soul_potential_option_1", "soul_atk", "soul_potential_grade", "soul_potential_amplified_grade"
                             ];
 
                             const statOrder = [
@@ -102,10 +187,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                                 Object.keys(obj).forEach(key => {
                                     sortedObj[key] = sortObjectKeys(obj[key]);
                                 });
-                                return sortedObj;
-                            };
+                            return sortedObj;
+                        };
 
-                            let existingData = localStorage.getItem('equipBookmarkList');
+                        let existingData = localStorage.getItem('equipBookmarkList');
                             let parsedData = (runMode === 'EXPORT' && existingData)
                                 ? JSON.parse(existingData)
                                 : { state: { bookmarkList: [] }, version: 0 };

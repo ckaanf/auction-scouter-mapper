@@ -37,10 +37,32 @@
             </div>
         </div>
 
+        <div style="display: flex; gap: 6px; align-items: center; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 5px; padding: 6px 8px; margin-bottom: 8px; font-size: 11px;">
+            <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0;">
+                <span style="font-weight: bold; color: #495057; white-space: nowrap;">👤 기준 캐릭:</span>
+                <select id="calcCharSelect" style="flex: 1; padding: 3px 4px; border: 1px solid #ced4da; border-radius: 4px; font-size: 11px; background: #fff; min-width: 0;">
+                    <option value="">(환산 조회 캐릭 없음)</option>
+                </select>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <span style="font-weight: bold; color: #495057; white-space: nowrap;">🔃 정렬:</span>
+                <select id="auctionSortSelect" style="padding: 3px 4px; border: 1px solid #ced4da; border-radius: 4px; font-size: 11px; background: #fff;">
+                    <option value="default">찜한 순서</option>
+                    <option value="fd_desc">최종뎀 높은 순</option>
+                    <option value="eff_desc">가성비(10억당 FD) 순</option>
+                    <option value="deal_desc">직작 대비 꿀매 순</option>
+                    <option value="price_asc">가격 낮은 순</option>
+                </select>
+            </div>
+        </div>
+
         <div id="itemList" class="item-list">
         </div>
 
-        <button id="exportBtn" class="export-btn">환산 사이트로 바로 추가하기</button>
+        <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+            <button id="exportBtn" class="export-btn" style="flex: 1; margin-bottom: 0;">아이템메이커로 추가</button>
+            <button id="exportSimulBtn" class="export-btn" style="flex: 1; margin-bottom: 0; background: #1e6091;">⚡ 스펙업 순서(추가스펙)로 추가</button>
+        </div>
 
         <div class="import-control"
             style="background: #f4fbf4; padding: 8px; border: 1px solid #d8ebd8; border-radius: 4px;">
@@ -167,6 +189,7 @@
     </div>
 
     <script src="mapper.js"></script>
+    <script src="fd_calculator.js"></script>
     <script src="popup_ui.js"></script>
     <script src="popup_aution.js"></script>
     <script src="popup_scouter.js"></script>
