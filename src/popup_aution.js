@@ -148,8 +148,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportSimulBtn = document.getElementById('exportSimulBtn');
     const clearAllBtn = document.getElementById('clearAllBtn');
     const clearCheckBtn = document.getElementById('clearCheckBtn');
+    const clearClosedBtn = document.getElementById('clearClosedBtn');
     const calcCharSelect = document.getElementById('calcCharSelect');
     const auctionSortSelect = document.getElementById('auctionSortSelect');
+    const chkOnlyOnSale = document.getElementById('chkOnlyOnSale');
     const toggleCraftConfigBtn = document.getElementById('toggleCraftConfigBtn');
     const craftConfigPanel = document.getElementById('craftConfigPanel');
     const resetCraftConfigBtn = document.getElementById('resetCraftConfigBtn');
@@ -169,6 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let charStoreCacheMap = {};
     let activeCalcCharName = '';
     let currentSortMode = 'default';
+    let onlyOnSaleFilter = false;
     let craftCostConfig = window.FDCalculator?.DEFAULT_CRAFT_CONFIG
         ? { ...window.FDCalculator.DEFAULT_CRAFT_CONFIG, customItemOverrides: {} }
         : {
@@ -306,6 +309,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (chkOnlyOnSale) {
+        chkOnlyOnSale.addEventListener('change', () => {
+            onlyOnSaleFilter = chkOnlyOnSale.checked;
+            chrome.storage.local.set({ onlyOnSaleFilter });
+            renderItems();
+        });
+    }
+
     // 열려 있는 환산 사이트 탭에서 최신 character-store 자동 동기화 및 다중 캐시 병합
     function syncOpenScouterTabsToCache() {
         if (!chrome.tabs || !window.FDCalculator) return;
@@ -346,11 +357,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================
     function loadData() {
         chrome.storage.local.get(
-            ['auctionWishlist', 'wishlistFolders', 'characterApiData', 'characterStoreCache', 'activeCalcCharName', 'auctionSortMode', 'craftCostConfig'],
+            ['auctionWishlist', 'wishlistFolders', 'characterApiData', 'characterStoreCache', 'activeCalcCharName', 'auctionSortMode', 'craftCostConfig', 'onlyOnSaleFilter'],
             (result) => {
                 charStoreCacheMap = result.characterStoreCache || {};
                 currentSortMode = result.auctionSortMode || 'default';
                 if (auctionSortSelect) auctionSortSelect.value = currentSortMode;
+                onlyOnSaleFilter = result.onlyOnSaleFilter === true;
+                if (chkOnlyOnSale) chkOnlyOnSale.checked = onlyOnSaleFilter;
 
                 if (result.craftCostConfig) {
                     craftCostConfig = {
@@ -397,23 +410,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (result.auctionWishlist && result.auctionWishlist.items && result.auctionWishlist.items.length > 0) {
                     auctionItems = result.auctionWishlist.items;
-                    renderItems();
-                    selectAllCheckbox.disabled = false;
-                    exportBtn.disabled = false;
-                    if (exportSimulBtn) exportSimulBtn.disabled = false;
                 } else {
                     auctionItems = [];
-                    itemList.innerHTML = '<div class="empty-msg">저장된 찜 목록이 없습니다.<br>메이플 경매장 찜 목록 페이지를 방문해주세요.</div>';
-                    selectAllCheckbox.disabled = true;
-                    exportBtn.disabled = true;
-                    if (exportSimulBtn) exportSimulBtn.disabled = true;
                 }
+                renderItems();
             }
         );
     }
 
     function renderItems() {
         itemList.innerHTML = '';
+
+        const closedCount = auctionItems.filter(item => item.isClosed === true || item.isUnwished === true).length;
+        if (clearClosedBtn) {
+            clearClosedBtn.textContent = closedCount > 0 ? `마감 정리 (${closedCount})` : '마감 정리';
+            clearClosedBtn.disabled = closedCount === 0;
+            if (closedCount > 0) {
+                clearClosedBtn.classList.add('has-closed');
+            } else {
+                clearClosedBtn.classList.remove('has-closed');
+            }
+        }
 
         // 정렬 및 렌더링을 위한 사전 평가 메타데이터 생성 (원본 인덱스 originalIndex 보존)
         const preparedList = auctionItems.map((item, originalIndex) => {
@@ -461,7 +478,28 @@ document.addEventListener('DOMContentLoaded', () => {
             preparedList.sort((a, b) => (a.priceEok || Infinity) - (b.priceEok || Infinity));
         }
 
-        preparedList.forEach(({ item, originalIndex, mappedPreview, fdCalc, craftEval }) => {
+        let displayList = preparedList;
+        if (onlyOnSaleFilter) {
+            displayList = preparedList.filter(({ item }) => !item.isClosed && !item.isUnwished);
+        }
+
+        if (displayList.length === 0) {
+            if (auctionItems.length > 0) {
+                itemList.innerHTML = '<div class="empty-msg">판매 중인 매물이 없습니다.<br>[판매중만] 체크를 해제하여 전체 매물을 확인하세요.</div>';
+            } else {
+                itemList.innerHTML = '<div class="empty-msg">저장된 찜 목록이 없습니다.<br>메이플 경매장 찜 목록 페이지를 방문해주세요.</div>';
+            }
+            selectAllCheckbox.disabled = true;
+            exportBtn.disabled = true;
+            if (exportSimulBtn) exportSimulBtn.disabled = true;
+            return;
+        } else {
+            selectAllCheckbox.disabled = false;
+            exportBtn.disabled = false;
+            if (exportSimulBtn) exportSimulBtn.disabled = false;
+        }
+
+        displayList.forEach(({ item, originalIndex, mappedPreview, fdCalc, craftEval }) => {
             const isClosed = item.isClosed === true;
             const isUnwished = item.isUnwished === true;
 
@@ -699,6 +737,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const updatedItems = auctionItems.filter(item => item.tradeSn !== targetTradeSn);
         chrome.storage.local.set({ auctionWishlist: { items: updatedItems } }, () => {
             loadData();
+        });
+    }
+
+    if (clearClosedBtn) {
+        clearClosedBtn.addEventListener('click', () => {
+            const closedItems = auctionItems.filter(item => item.isClosed === true || item.isUnwished === true);
+            if (closedItems.length === 0) {
+                alert('정리할 마감(판매종료/찜해제) 매물이 없습니다.');
+                return;
+            }
+
+            if (confirm(`판매종료 또는 찜해제된 매물 ${closedItems.length}개를 찜 목록에서 일괄 삭제하시겠습니까?`)) {
+                const remainingItems = auctionItems.filter(item => !item.isClosed && !item.isUnwished);
+                chrome.storage.local.set({ auctionWishlist: { items: remainingItems } }, () => {
+                    loadData();
+                });
+            }
         });
     }
 

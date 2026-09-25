@@ -339,6 +339,40 @@ button.delete-btn:hover {
     border-color: #ff4d4f;
 }
 
+button.clear-closed-btn {
+    color: #8c6b54;
+    border-color: #e2d6c8;
+    background-color: #ffffff;
+    transition: all 0.2s ease;
+}
+
+button.clear-closed-btn:hover {
+    background-color: #ffeedd;
+    color: #d9480f;
+    border-color: #F68610;
+}
+
+button.clear-closed-btn.has-closed {
+    color: #d9480f;
+    border-color: #ffa94d;
+    background-color: #fff4e6;
+    font-weight: 700;
+}
+
+button.clear-closed-btn.has-closed:hover {
+    background-color: #ff922b;
+    color: #ffffff;
+    border-color: #ff922b;
+}
+
+button.clear-closed-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: transparent;
+    color: #bbb;
+    border-color: #eee;
+}
+
 .empty-msg {
     text-align: center;
     color: #888;
@@ -753,6 +787,7 @@ body::-webkit-scrollbar,
     padding: 6px 8px;
     margin-bottom: 8px;
     font-size: 11px;
+    flex-wrap: wrap;
 }
 
 .filter-group {
@@ -781,6 +816,45 @@ body::-webkit-scrollbar,
 
 .modern-select:focus {
     border-color: #F68610;
+}
+
+.filter-check-option {
+    display: flex;
+    align-items: center;
+    padding: 3px 6px;
+    border-radius: 5px;
+    border: 1px solid #ded4c6;
+    background: #ffffff;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.filter-check-option:hover {
+    border-color: #F68610;
+    background: #fffaf4;
+}
+
+.filter-check-option:has(input:checked) {
+    background: #fff4e6;
+    border-color: #F68610;
+}
+
+.filter-check-option .ui-checkbox-box {
+    margin-right: 4px;
+    width: 13px;
+    height: 13px;
+}
+
+.filter-check-text {
+    font-size: 11px;
+    font-weight: 600;
+    color: #4b3d32;
+}
+
+.filter-check-option:has(input:checked) .filter-check-text {
+    color: #d9480f;
 }
 
 .craft-cfg-toggle-btn {
