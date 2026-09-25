@@ -555,6 +555,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 fdDiv.textContent = `최종뎀 ${sign}${fdCalc.eff}% (환산 ${hwanSign}${fdCalc.hwanDiff} / 헥사 ${hexaSign}${fdCalc.hexaDiff})`;
                 infoDiv.appendChild(fdDiv);
 
+                if (fdCalc.seedRingNotice) {
+                    const seedTag = document.createElement('div');
+                    seedTag.className = 'item-seed-tag';
+                    seedTag.textContent = `⚡ ${fdCalc.seedRingNotice}`;
+                    infoDiv.appendChild(seedTag);
+                }
+
                 // 5) 기댓값 배지 + 상세 보기 토글 (스타포스/잠재/작/추옵 상세 내역)
                 if (craftEval && craftEval.isEvaluated) {
                     const craftContainer = document.createElement('div');

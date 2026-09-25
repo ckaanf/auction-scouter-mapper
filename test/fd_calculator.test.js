@@ -14,7 +14,11 @@ const {
     invertHermiteSpline,
     calculateItemFdIncrease,
     formatSimulBookmarkName,
-    buildSimulBookmarkEntry
+    buildSimulBookmarkEntry,
+    isSeedRing,
+    getSeedRingFamily,
+    extractSeedRingLevel,
+    getSeedRingFdEstimate
 } = require('../src/fd_calculator.js');
 
 test('1. 기본 파이프라인: 경매장 찜 아이템 -> 추가스펙(bookMarkSimulList) 포맷 및 로컬 최종뎀(eff) 산출 검증', () => {
@@ -178,7 +182,7 @@ test('3. 직업별 특수 스탯 경계값: 섀도어(이중 부스탯 배열 ["
     assert.equal(daStats.allStatPer, 0); // 데몬어벤져는 올스탯% 미적용
 });
 
-test('4. 다중 슬롯(펜던트/반지) 스마트 비교 및 시드링 보호 검증', () => {
+test('4. 다중 슬롯(펜던트/반지) 스마트 비교 및 시드링 보호/1:1 매칭/FD 산출 검증', () => {
     const equippedList = [
         {
             slot: '펜던트',
@@ -197,7 +201,7 @@ test('4. 다중 슬롯(펜던트/반지) 스마트 비교 및 시드링 보호 �
         {
             slot: '반지1',
             part: '반지',
-            name: '리스트레인트 링',
+            name: '리스트레인트 링 3레벨',
             totalOption: { int: '4', luk: '4', magic_power: '4' },
             potential_option_1: ['없음', '없음', '없음']
         },
@@ -207,19 +211,66 @@ test('4. 다중 슬롯(펜던트/반지) 스마트 비교 및 시드링 보호 �
             name: '마이링',
             totalOption: { int: '80', luk: '80', magic_power: '30' },
             potential_option_1: ['INT : +9%', '없음', '없음']
+        },
+        {
+            slot: '반지3',
+            part: '반지',
+            name: '웨폰퍼프 - I 링 3레벨',
+            totalOption: { int: '4', luk: '4', magic_power: '4' },
+            potential_option_1: ['없음', '없음', '없음']
         }
     ];
 
-    // 경매장에서 가져온 데이브레이크 펜던트(slot: '펜던트')는 강한 '고통의 근원'(펜던트)이 아니라 약한 '도미네이터 펜던트'(펜던트2)와 비교되어야 함!
+    // 4-1. 펜던트 다중 슬롯: 약한 도미네이터 펜던트와 매칭
     const newPendant = { slot: '펜던트', part: '펜던트', name: '데이브레이크 펜던트' };
     const matchedPendant = findComparableEquippedItem(newPendant, equippedList, 'int', 'luk', 285);
     assert.equal(matchedPendant.name, '도미네이터 펜던트');
     assert.equal(matchedPendant.slot, '펜던트2');
 
-    // 경매장에서 가져온 거대한 공포(slot: '반지')는 스탯이 4인 '리스트레인트 링'(시드링)을 건드리지 않고 '마이링'과 비교되어야 함!
-    const newRing = { slot: '반지', part: '반지', name: '거대한 공포' };
-    const matchedRing = findComparableEquippedItem(newRing, equippedList, 'int', 'luk', 285);
-    assert.equal(matchedRing.name, '마이링');
+    // 4-2. 일반 반지 매물 찜 시: 시드링 2개(리레3, 웨퍼3)를 보호하고 일반 반지(마이링)와 비교!
+    const newRegularRing = { slot: '반지', part: '반지', name: '거대한 공포' };
+    const matchedRegular = findComparableEquippedItem(newRegularRing, equippedList, 'int', 'luk', 285);
+    assert.equal(matchedRegular.name, '마이링');
+
+    // 4-3. 시드링(리레 4레벨) 매물 찜 시: 일반 반지가 아니라 착용 중인 '리스트레인트 링 3레벨'과 1:1 매칭!
+    const newRor4 = { slot: '반지', part: '반지', name: '리스트레인트 링 4레벨' };
+    const matchedRor = findComparableEquippedItem(newRor4, equippedList, 'int', 'luk', 285);
+    assert.equal(matchedRor.name, '리스트레인트 링 3레벨');
+    assert.equal(matchedRor.slot, '반지1');
+
+    // 4-4. 시드링(웨폰퍼프 - I 4레벨) 매물 찜 시: 동일 계열 '웨폰퍼프 - I 링 3레벨'과 1:1 매칭!
+    const newWj4 = { slot: '반지', part: '반지', name: '웨폰퍼프 - I 링 4레벨' };
+    const matchedWj = findComparableEquippedItem(newWj4, equippedList, 'int', 'luk', 285);
+    assert.equal(matchedWj.name, '웨폰퍼프 - I 링 3레벨');
+    assert.equal(matchedWj.slot, '반지3');
+
+    // 4-5. 시드링 승급(리레 3레벨 -> 4레벨) 최종뎀(eff) 산출 및 안내 태그 검증
+    const charContext = {
+        specEfficiency: {
+            atkeff1: 0.000289433,
+            mainStateff1: 0.000088549
+        },
+        myClassData: { main: 'int', sub: 'luk' },
+        userEquipData: equippedList,
+        charLevel: 285
+    };
+    const fdRor4 = calculateItemFdIncrease(newRor4, charContext);
+    assert.equal(fdRor4.isSeedRing, true);
+    assert.equal(fdRor4.eff, 2.85); // 리레 3->4 벤치마크 2.85%
+    assert.equal(fdRor4.oldItemName, '리스트레인트 링 3레벨');
+    assert.match(fdRor4.seedRingNotice, /시드링 액티브 3레벨 ➔ 4레벨/);
+
+    // 4-6. 시드링 헬퍼 함수 유닛 테스트
+    assert.equal(isSeedRing('리스트레인트 링 4레벨'), true);
+    assert.equal(isSeedRing('컨티뉴어스 링 3레벨'), true);
+    assert.equal(isSeedRing('거대한 공포'), false);
+    assert.equal(getSeedRingFamily('웨폰퍼프 - I 링 4레벨'), '웨폰퍼프 - I');
+    assert.equal(extractSeedRingLevel('리스트레인트 링 4레벨'), 4);
+    assert.equal(extractSeedRingLevel('컨티뉴어스 링 3레벨'), 3);
+    assert.equal(getSeedRingFdEstimate('리스트레인트', 3, 4), 2.85);
+    assert.equal(getSeedRingFdEstimate('컨티뉴어스', 3, 4), 2.60);
+    assert.equal(getSeedRingFdEstimate('웨폰퍼프', 3, 4), 2.30);
+    assert.equal(getSeedRingFdEstimate('리스크테이커', 3, 4), 2.10);
 });
 
 test('5. 무기 소울 옵션 및 보조무기 슬롯 매핑, 비정상 입력(Null/빈 슬롯) 방어 검증', () => {

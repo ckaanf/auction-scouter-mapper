@@ -556,14 +556,58 @@
         "벨트": "벨트",
         "훈장": "훈장",
         "무기": "무기",
-        "엠블렘": "엠블렘"
+        "엠블렘": "엠블렘",
+        "반지": "반지",
+        "특수 반지": "반지",
+        "특수반지": "반지"
     };
+
+    const SEED_RING_REGEX = /(리스트레인트|컨티뉴어스|웨폰퍼프|리스크테이커|링 오브 썸|크라이시스|레벨퍼프|듀얼블로우|얼티메이텀|헬스컷|마나컷|회복의 링|리밋 링)/;
+
+    function isSeedRing(name) {
+        return SEED_RING_REGEX.test(name || "");
+    }
+
+    function getSeedRingFamily(name) {
+        if (!name) return "";
+        const s = String(name).trim();
+        const match = s.match(/(리스트레인트|컨티뉴어스|웨폰퍼프\s*-\s*[SDIL]|웨폰퍼프|리스크테이커|링 오브 썸|크라이시스\s*-\s*[HM]|크라이시스|레벨퍼프\s*-\s*[SDIL]|레벨퍼프|듀얼블로우|얼티메이텀|헬스컷|마나컷|회복의 링|리밋 링)/);
+        return match ? match[0].replace(/\s+/g, " ").trim() : "";
+    }
+
+    function extractSeedRingLevel(name) {
+        if (!name) return 0;
+        const match = String(name).match(/([1-4])\s*레벨/);
+        return match ? parseInt(match[1], 10) : 0;
+    }
+
+    const SEED_RING_BENCHMARK_FD = {
+        "리스트레인트": { "3->4": 2.85, "2->4": 5.20, "1->4": 7.20, "2->3": 2.35, "1->3": 4.35, "1->2": 2.00 },
+        "컨티뉴어스": { "3->4": 2.60, "2->4": 4.80, "1->4": 6.70, "2->3": 2.20, "1->3": 4.10, "1->2": 1.90 },
+        "웨폰퍼프": { "3->4": 2.30, "2->4": 4.30, "1->4": 6.10, "2->3": 2.00, "1->3": 3.80, "1->2": 1.80 },
+        "리스크테이커": { "3->4": 2.10, "2->4": 3.90, "1->4": 5.60, "2->3": 1.80, "1->3": 3.50, "1->2": 1.70 }
+    };
+
+    function getSeedRingFdEstimate(newFamily, oldLv, newLv) {
+        if (newLv <= oldLv || oldLv <= 0 || newLv <= 0) return 0;
+        const key = `${oldLv}->${newLv}`;
+        const baseKey = Object.keys(SEED_RING_BENCHMARK_FD).find(k => newFamily.includes(k));
+        if (baseKey && SEED_RING_BENCHMARK_FD[baseKey][key]) {
+            return SEED_RING_BENCHMARK_FD[baseKey][key];
+        }
+        if (key === "3->4") return 1.80;
+        if (key === "2->4") return 3.20;
+        if (key === "1->4") return 4.50;
+        return 1.20;
+    }
 
     function normalizeSlotName(str) {
         if (!str) return "";
         const s = String(str).trim();
+        if (s === "예비 특수 반지" || s === "예비특수반지") return "예비 특수 반지";
         if (s.startsWith("펜던트")) return "펜던트";
         if (s.startsWith("반지")) return "반지";
+        if (s.includes("특수 반지") || s.includes("특수반지")) return "반지";
         if (SLOT_NORMALIZATION_MAP[s]) return SLOT_NORMALIZATION_MAP[s];
         if (s.includes("보조무기") || s.includes("방패") || s.includes("포스실드") || s.includes("소울링") || s.includes("블레이드") || s.includes("마도서")) {
             return "보조무기";
@@ -576,6 +620,7 @@
      * - 펜던트(펜던트/펜던트1/펜던트2) 및 반지(반지1~4) 다중 슬롯은
      *   동일 이름 매칭 우선 -> 가장 전투력이 낮은 슬롯과 스마트 비교
      * - 배지/뱃지, 기계심장/하트, 포켓 등 명칭 불일치를 SLOT_NORMALIZATION_MAP으로 100% 정규화 매칭
+     * - 특수 반지(시드링) 찜 시 기존 시드링 슬롯과 1:1 매칭, 일반 반지 찜 시 시드링 완벽 보호
      */
     function findComparableEquippedItem(newItem, userEquipData, mainKey = "int", subKey = "luk", charLevel = 285) {
         if (!Array.isArray(userEquipData) || userEquipData.length === 0 || !newItem) return null;
@@ -601,23 +646,51 @@
             })[0];
         }
 
-        // 2. 반지 다중 슬롯 스마트 비교 ("반지", "반지1"~"반지4")
+        // 2. 반지 다중 슬롯 스마트 비교 ("반지", "반지1"~"반지4", "특수 반지")
         if (normNewSlot === "반지") {
             const rings = userEquipData.filter(
                 eq => eq && eq.name && normalizeSlotName(eq.slot || eq.part) === "반지"
             );
             if (rings.length === 0) return null;
-            const sameRing = rings.find(eq => eq.name === newItem.name);
-            if (sameRing) return sameRing;
 
-            const nonSeedRings = rings.filter(eq => !/(리스트레인트|컨티뉴어스|웨폰퍼프|리스크테이커)/.test(eq.name || ""));
-            const candidates = nonSeedRings.length > 0 ? nonSeedRings : rings;
+            // 이름 완벽 일치 우선 (예: 기존과 동일한 반지를 직작/완제로 교체 시)
+            const exactSameRing = rings.find(eq => eq.name === newItem.name);
+            if (exactSameRing) return exactSameRing;
 
-            return [...candidates].sort((a, b) => {
-                const sa = extractItemCombatStats(a, mainKey, subKey, charLevel);
-                const sb = extractItemCombatStats(b, mainKey, subKey, charLevel);
-                return (sa.mainStat + sa.mainStatPer * 12 + sa.atk * 3.5) - (sb.mainStat + sb.mainStatPer * 12 + sb.atk * 3.5);
-            })[0];
+            const isNewSeed = isSeedRing(newItem.name);
+
+            if (isNewSeed) {
+                // (A) 경매장 찜 아이템이 시드링(특수 반지)인 경우
+                // 1순위: 동일 시드링 계열 매칭 (예: '리스트레인트 링 4레벨' -> 착용 중인 '리스트레인트 링 3레벨')
+                const newFamily = getSeedRingFamily(newItem.name);
+                if (newFamily) {
+                    const sameFamilySeed = rings.find(eq => eq && eq.name && getSeedRingFamily(eq.name) === newFamily);
+                    if (sameFamilySeed) return sameFamilySeed;
+                }
+
+                // 2순위: 착용 중인 다른 시드링 슬롯 매칭 (예: 컨티뉴어스 링 끼고 있는데 리레 링 매수 고려)
+                const equippedAnySeed = rings.find(eq => eq && isSeedRing(eq.name));
+                if (equippedAnySeed) return equippedAnySeed;
+
+                // 3순위: 착용 중인 시드링이 없는 경우(4일반 반지 착용 유저) -> 가장 약한 일반 반지 슬롯 반환
+                const sortedRegular = [...rings].sort((a, b) => {
+                    const sa = extractItemCombatStats(a, mainKey, subKey, charLevel);
+                    const sb = extractItemCombatStats(b, mainKey, subKey, charLevel);
+                    return (sa.mainStat + sa.mainStatPer * 12 + sa.atk * 3.5) - (sb.mainStat + sb.mainStatPer * 12 + sb.atk * 3.5);
+                });
+                return sortedRegular[0];
+            } else {
+                // (B) 경매장 찜 아이템이 일반 스탯 반지인 경우
+                // 착용 중인 시드링은 절대 건드리지 않고, 일반 반지 중 가장 약한 반지와 비교!
+                const nonSeedRings = rings.filter(eq => !isSeedRing(eq.name));
+                const candidates = nonSeedRings.length > 0 ? nonSeedRings : rings;
+
+                return [...candidates].sort((a, b) => {
+                    const sa = extractItemCombatStats(a, mainKey, subKey, charLevel);
+                    const sb = extractItemCombatStats(b, mainKey, subKey, charLevel);
+                    return (sa.mainStat + sa.mainStatPer * 12 + sa.atk * 3.5) - (sb.mainStat + sb.mainStatPer * 12 + sb.atk * 3.5);
+                })[0];
+            }
         }
 
         // 3. 단일 슬롯 정규화 매칭 (배지/뱃지, 기계 심장/하트, 포켓 등 완벽 호환)
@@ -747,7 +820,35 @@
 
         // 독립 버킷 간 복리 곱연산
         const totalMultiplier = statMult * atkMult * dmgMult * criMult * igrMult * coolMult;
-        const fdPercent = (totalMultiplier - 1.0) * 100.0;
+        let fdPercent = (totalMultiplier - 1.0) * 100.0;
+
+        let seedRingNotice = null;
+        let isSeedRingItem = false;
+
+        // 특수 반지(시드링) 판정 및 극딜/스킬 기여도 보정
+        const isNewSeed = isSeedRing(mappedItem.name);
+        const isOldSeed = oldItem && isSeedRing(oldItem.name);
+
+        if (isNewSeed) {
+            isSeedRingItem = true;
+            const newLv = extractSeedRingLevel(mappedItem.name);
+            const oldLv = isOldSeed ? extractSeedRingLevel(oldItem.name) : 0;
+            const newFamily = getSeedRingFamily(mappedItem.name);
+
+            if (isOldSeed && newLv > oldLv) {
+                // 시드링 승급 (예: 리레3 -> 리레4)
+                const benchmarkFd = getSeedRingFdEstimate(newFamily, oldLv, newLv);
+                fdPercent = benchmarkFd;
+                seedRingNotice = `시드링 액티브 ${oldLv}레벨 ➔ ${newLv}레벨 스킬 기여 추정치 (+${benchmarkFd}%)`;
+            } else if (isOldSeed && newLv === oldLv) {
+                fdPercent = 0.0;
+                seedRingNotice = `동일 ${newLv}레벨 시드링 (변동 없음)`;
+            } else if (!isOldSeed && oldItem) {
+                // 일반 스탯 반지를 착용 중인 상태에서 시드링을 처음 장착하는 경우
+                seedRingNotice = `특수 액티브 반지 (극딜 시 액티브 버프 발동, 단순 기본 스탯 비교 주의)`;
+            }
+        }
+
         const roundedEff = Math.round(fdPercent * 1000) / 1000;
 
         // 7. 에르미트 스플라인 역함수로 정확한 일반환산(boss380_stat) 및 헥사환산(boss380_hexaStat) 변화량 도출
@@ -755,7 +856,8 @@
         let hexaDiff = Math.round(hwanDiff * 0.855);
 
         if (charContext?.spline380 && charContext?.calculatedDamage380 > 0 && charContext?.boss380Stat > 0) {
-            const newDamage380 = charContext.calculatedDamage380 * totalMultiplier;
+            const finalMultiplier = 1.0 + (fdPercent / 100.0);
+            const newDamage380 = charContext.calculatedDamage380 * finalMultiplier;
             const newBoss380Stat = invertHermiteSpline(charContext.spline380, newDamage380);
             if (newBoss380Stat !== null) {
                 hwanDiff = newBoss380Stat - charContext.boss380Stat;
@@ -772,7 +874,9 @@
             hexaDiff: hexaDiff,
             targetSlot: oldItem ? oldItem.slot : mappedItem.slot,
             oldItemName: oldItem ? oldItem.name : "미착용",
-            isFallback: !charContext?.specEfficiency
+            isFallback: !charContext?.specEfficiency,
+            isSeedRing: isSeedRingItem,
+            seedRingNotice: seedRingNotice
         };
     }
 
@@ -1331,7 +1435,11 @@
         summarizeItemPotentials,
         evaluateCraftVsBuy,
         formatSimulBookmarkName,
-        buildSimulBookmarkEntry
+        buildSimulBookmarkEntry,
+        isSeedRing,
+        getSeedRingFamily,
+        extractSeedRingLevel,
+        getSeedRingFdEstimate
     };
 
     if (typeof module !== "undefined" && module.exports) {
