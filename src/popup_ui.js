@@ -43,7 +43,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    chrome.storage.local.get(['remoteConfig'], (res) => {
+    // 5. [UI 테마 스위치] B안(2026 모던 UI, 기본) ⇄ A안(기존 클래식 UI) 즉시 전환 및 유지
+    const uiThemeToggleBtn = document.getElementById('uiThemeToggleBtn');
+    function applyThemeMode(mode) {
+        const isModern = mode !== 'classic';
+        document.body.classList.toggle('theme-modern', isModern);
+        if (uiThemeToggleBtn) {
+            uiThemeToggleBtn.textContent = isModern ? '🎨 UI: B안(모던)' : '🎨 UI: A안(기존)';
+        }
+    }
+
+    if (uiThemeToggleBtn) {
+        uiThemeToggleBtn.addEventListener('click', () => {
+            const nextMode = document.body.classList.contains('theme-modern') ? 'classic' : 'modern';
+            applyThemeMode(nextMode);
+            chrome.storage.local.set({ uiThemeMode: nextMode });
+        });
+    }
+
+    chrome.storage.local.get(['remoteConfig', 'uiThemeMode'], (res) => {
+        applyThemeMode(res.uiThemeMode || 'modern');
         if (res.remoteConfig) {
             applyRemoteConfig(res.remoteConfig);
         }

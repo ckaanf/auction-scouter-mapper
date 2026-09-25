@@ -17,11 +17,37 @@ window.addEventListener("message", function(event) {
 
     if (event.data.type === "MAPLESCOUTER_SPEC_DATA_INTERCEPTED") {
         const intercepted = event.data.payload;
-        chrome.storage.local.set({ 
-            characterApiData: intercepted.characterApi,
-            specOrderData: intercepted.specOrder,
-            rawBookmarkData: intercepted.bookmarks 
-        });
+        const updateObj = {};
+        if (intercepted.characterApi) {
+            updateObj.characterApiData = intercepted.characterApi;
+            try {
+                const parsed = typeof intercepted.characterApi === "string"
+                    ? JSON.parse(intercepted.characterApi)
+                    : intercepted.characterApi;
+                const root = parsed?.state?.searchResult || parsed?.state || parsed;
+                const charName = root?.userApiData?.info?.character_name || root?.info?.character_name;
+                const charLevel = Number(root?.userApiData?.stat?.level || root?.stat?.level || 285);
+                if (charName) {
+                    chrome.storage.local.get(['characterStoreCache'], (res) => {
+                        const cache = res.characterStoreCache || {};
+                        cache[charName] = {
+                            rawStore: intercepted.characterApi,
+                            level: charLevel,
+                            updatedAt: Date.now()
+                        };
+                        chrome.storage.local.set({
+                            ...updateObj,
+                            characterStoreCache: cache,
+                            activeCalcCharName: charName
+                        });
+                    });
+                    return;
+                }
+            } catch (e) {}
+        }
+        if (intercepted.specOrder) updateObj.specOrderData = intercepted.specOrder;
+        if (intercepted.bookmarks !== undefined) updateObj.rawBookmarkData = intercepted.bookmarks;
+        chrome.storage.local.set(updateObj);
     }
 });
 

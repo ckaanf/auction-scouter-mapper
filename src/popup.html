@@ -6,8 +6,11 @@
     <link rel="stylesheet" href="popup.css">
 </head>
 
-<body>
-    <h3>경매장 - 환산 아이템메이커 보관함(가칭)</h3>
+<body class="theme-modern">
+    <div class="app-header">
+        <h3>🍁 메이플 경매장 · 환산 브릿지 <span class="ver-pill">v2.0</span></h3>
+        <button id="uiThemeToggleBtn" class="theme-toggle-btn" title="클릭하여 B안(2026 모던 UI)과 A안(기존 클래식 UI)을 즉시 전환합니다">🎨 UI: B안(모던)</button>
+    </div>
 
     <div class="tab-container">
         <button class="tab-btn active" id="tabWishlist">경매장 찜 목록</button>
@@ -31,16 +34,79 @@
                     <span>전체 선택</span>
                 </label>
             </div>
-            <div>
-                <button id="clearCheckBtn" class="delete-btn">선택된 품목 삭제</button>
-                <button id="clearAllBtn" class="delete-btn">전체 품목 삭제</button>
+            <div style="display: flex; gap: 4px;">
+                <button id="clearCheckBtn" class="delete-btn">선택 삭제</button>
+                <button id="clearAllBtn" class="delete-btn">전체 삭제</button>
             </div>
+        </div>
+
+        <div class="filter-toolbar">
+            <div class="filter-group" style="flex: 1; min-width: 0;">
+                <span class="filter-label">👤 캐릭</span>
+                <select id="calcCharSelect" class="modern-select" style="flex: 1; min-width: 0;">
+                    <option value="">(환산 조회 캐릭 없음)</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <span class="filter-label">🔃 정렬</span>
+                <select id="auctionSortSelect" class="modern-select">
+                    <option value="default">찜한 순서</option>
+                    <option value="fd_desc">최종뎀 높은 순</option>
+                    <option value="eff_desc">가성비(10억당 FD) 순</option>
+                    <option value="deal_desc">직작 대비 꿀매 순</option>
+                    <option value="price_asc">가격 낮은 순</option>
+                </select>
+            </div>
+            <button id="toggleCraftConfigBtn" class="craft-cfg-toggle-btn" title="직작 원가 및 손익분기 기댓값 설정 열기/닫기">⚙️ 원가설정</button>
+        </div>
+
+        <!-- [방안 A] 접이식 직작 원가 / 손익분기 설정 대시보드 -->
+        <div id="craftConfigPanel" class="craft-config-panel" style="display: none;">
+            <div class="craft-config-header">
+                <span style="font-weight: 700; color: #1e293b; font-size: 11.5px;">⚖️ 직작 원가(손익분기) 기댓값 설정</span>
+                <button id="resetCraftConfigBtn" class="craft-reset-btn">🔄 기본값 초기화</button>
+            </div>
+            <div class="craft-preset-row">
+                <button type="button" class="craft-preset-btn" data-preset="full_event">🔥 풀 이벤트(샤타+미라클)</button>
+                <button type="button" class="craft-preset-btn active" data-preset="standard">⚖️ 표준 메타(기본)</button>
+                <button type="button" class="craft-preset-btn" data-preset="conservative">🛡️ 불운 방어(평일+P75)</button>
+            </div>
+            <div class="craft-grid">
+                <div class="craft-field">
+                    <label>에테(모/상/하) 노작</label>
+                    <div class="craft-input-wrap"><input type="number" id="cfgEternalBase" value="7.0" step="0.5" min="0"><span>억</span></div>
+                </div>
+                <div class="craft-field">
+                    <label>아케인 방어구 노작</label>
+                    <div class="craft-input-wrap"><input type="number" id="cfgArcaneBase" value="0.5" step="0.1" min="0"><span>억</span></div>
+                </div>
+                <div class="craft-field">
+                    <label>칠흑 평균 노작</label>
+                    <div class="craft-input-wrap"><input type="number" id="cfgPitchedBase" value="18.0" step="1.0" min="0"><span>억</span></div>
+                </div>
+                <div class="craft-field">
+                    <label>잠재 비용 반영률</label>
+                    <div class="craft-input-wrap"><input type="number" id="cfgPotWeight" value="100" step="5" min="0" max="200"><span>%</span></div>
+                </div>
+                <div class="craft-field">
+                    <label>불운 리스크 할증</label>
+                    <div class="craft-input-wrap"><input type="number" id="cfgRiskMult" value="1.0" step="0.05" min="0.5" max="2.0"><span>배</span></div>
+                </div>
+                <div class="craft-field">
+                    <label>중고 가횟(5~7) 감가</label>
+                    <div class="craft-input-wrap"><input type="number" id="cfgUsedCutDisc" value="15" step="5" min="0" max="60"><span>%</span></div>
+                </div>
+            </div>
+            <div class="craft-tip">💡 <b>팁</b>: 아래 아이템의 <b>🟢꿀매/🟡적정가 배지를 클릭</b>하면 해당 매물의 기준 직작가를 직접 입력할 수 있습니다.</div>
         </div>
 
         <div id="itemList" class="item-list">
         </div>
 
-        <button id="exportBtn" class="export-btn">환산 사이트로 바로 추가하기</button>
+        <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+            <button id="exportBtn" class="export-btn" style="flex: 1; margin-bottom: 0;">아이템메이커로 추가</button>
+            <button id="exportSimulBtn" class="export-btn" style="flex: 1; margin-bottom: 0; background: #1e6091;">⚡ 스펙업 순서(추가스펙)로 추가</button>
+        </div>
 
         <div class="import-control"
             style="background: #f4fbf4; padding: 8px; border: 1px solid #d8ebd8; border-radius: 4px;">
@@ -167,6 +233,7 @@
     </div>
 
     <script src="mapper.js"></script>
+    <script src="fd_calculator.js"></script>
     <script src="popup_ui.js"></script>
     <script src="popup_aution.js"></script>
     <script src="popup_scouter.js"></script>
