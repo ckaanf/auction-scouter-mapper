@@ -209,24 +209,28 @@
         }
 
         // 4. 카오스 루타비스 럭키 모자(d) 적용
-        if (hasChaosRootHat) {
-            ["루타비스 세트", "앱솔랩스 세트", "아케인셰이드 세트", "에테르넬 세트", "도전자의 장비 세트"].forEach(setName => {
+        if (hasChaosRootHat && !luckyApplied) {
+            const candidateSets = ["에테르넬 세트", "아케인셰이드 세트", "앱솔랩스 세트", "루타비스 세트", "도전자의 장비 세트"];
+            for (const setName of candidateSets) {
                 if (counts[setName] >= 3) {
                     counts[setName] += 1;
                     luckyApplied = true;
+                    break;
                 }
-            });
+            }
         }
 
         // 5. 해방된 제네시스/데스티니 무기(u) 럭키 아이템 적용 (chunk 3723 1:1 이식)
-        // 3세트 이상 착용 중인 모든 하위 방어구 세트(루타비스, 앱솔랩스, 아케인셰이드, 마이스터, 도전자의 장비 세트)에 +1세트 부여!
+        // 3세트 이상 착용 중인 하위 방어구 세트에 럭키 아이템 +1세트 단일 부여 (아케인 > 앱솔 > 루타비스 > 마이스터 > 도전자)
         if (hasGenesisWeapon && !luckyApplied) {
-            ["루타비스 세트", "앱솔랩스 세트", "아케인셰이드 세트", "마이스터 세트", "도전자의 장비 세트"].forEach(setName => {
+            const candidateSets = ["아케인셰이드 세트", "앱솔랩스 세트", "루타비스 세트", "마이스터 세트", "도전자의 장비 세트"];
+            for (const setName of candidateSets) {
                 if (counts[setName] >= 3) {
                     counts[setName] += 1;
                     luckyApplied = true;
+                    break;
                 }
-            });
+            }
         }
 
         // 6. 활성화된 세트 옵션 합산

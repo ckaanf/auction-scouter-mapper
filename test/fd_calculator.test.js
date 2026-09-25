@@ -532,3 +532,62 @@ test('7. [0순위 신뢰성 보장] 광휘의 보스 세트 6종, 슬롯 정규�
     assert.equal(mappedLara.slot, '보조무기');
     assert.equal(mappedLara.class_group, '마법사');
 });
+
+test('8. [2026 메타 신뢰성] 3에4아 세트 전환 및 해방 제네시스 럭키 아이템 승계/붕괴 정밀 검증', () => {
+    // 8-1. 3에4아 베이스라인 세팅:
+    // - 에테르넬 3부위: 모자, 상의, 하의
+    // - 아케인 4부위: 장갑, 신발, 망토, 견장(어깨장식)
+    // - 무기: 해방된 제네시스 스태프 (에테르넬 무기 카운트 + 아케인 4부위에 럭키 아이템으로 참여하여 아케인 5셋 발동!)
+    const base3e4aList = [
+        { slot: '무기', name: '제네시스 스태프' },
+        { slot: '모자', name: '에테르넬 메이지햇' },
+        { slot: '상의', name: '에테르넬 메이지로브' },
+        { slot: '하의', name: '에테르넬 메이지팬츠' },
+        { slot: '장갑', name: '아케인셰이드 메이지글러브' },
+        { slot: '신발', name: '아케인셰이드 메이지슈즈' },
+        { slot: '망토', name: '아케인셰이드 메이지클록' },
+        { slot: '어깨장식', name: '아케인셰이드 메이지숄더' }
+    ];
+
+    const baseTotals = evaluateTotalSetStats(base3e4aList);
+    // 에테르넬: 모/상/하(3) + 제네시스(1) = 4셋 -> 올50, 공120, 보30
+    // 아케인: 장/신/망/견(4) + 제네시스 럭키(+1) = 5셋 -> 올50, 공135, 보30, 방무 [10]
+    // 총합: mainStat = 50 + 50 = 100, atk = 120 + 135 = 255, bossDmg = 30 + 30 = 60, 방무 [10]
+    assert.equal(baseTotals.mainStat, 100);
+    assert.equal(baseTotals.atk, 255);
+    assert.equal(baseTotals.bossDmg, 60);
+    assert.equal(baseTotals.ignoreDefList.length, 1);
+    assert.equal(baseTotals.ignoreDefList[0], 10);
+
+    // 8-2. 3에4아 -> 4에3아 (견장을 에테르넬 숄더로 교체):
+    // - 에테르넬: 모/상/하/견(4) + 제네시스(1) = 5셋 발동 (공40, 방무 20% 추가 획득!)
+    // - 아케인: 장/신/망(3) -> 3부위 이상이므로 제네시스 럭키 참여 유지되어 아케인 4셋 유지!
+    const swapped4e3aList = base3e4aList.map(eq =>
+        eq.slot === '어깨장식' ? { slot: '어깨장식', name: '에테르넬 메이지숄더' } : eq
+    );
+    const swapped4eTotals = evaluateTotalSetStats(swapped4e3aList);
+    // 에테 5셋: 올50, 공160, 보30, 방무 [20]
+    // 아케인 4셋: 올50, 공95, 보20, 방무 [10]
+    // 총합: mainStat = 100, atk = 160 + 95 = 255, bossDmg = 30 + 20 = 50, 방무 [20, 10]
+    assert.equal(swapped4eTotals.mainStat, 100);
+    assert.equal(swapped4eTotals.atk, 255);
+    assert.equal(swapped4eTotals.bossDmg, 50); // 아케인 5셋 보공(-10%) 손실
+    assert.equal(swapped4eTotals.ignoreDefList.length, 2);
+    assert.deepEqual(swapped4eTotals.ignoreDefList, [20, 10]); // 에테 5셋 방무 20% 신규 획득!
+
+    // 8-3. 4에3아 -> 5에2아 (장갑까지 에테르넬 글러브로 교체):
+    // - 에테르넬: 모/상/하/견/장(5) + 제네시스(1) = 6셋 발동 (공40, 보15%)
+    // - 아케인: 신/망(2) -> 3부위 미만이므로 제네시스 럭키 참여 불가! 순수 2셋으로 강등!
+    const swapped5e2aList = swapped4e3aList.map(eq =>
+        eq.slot === '장갑' ? { slot: '장갑', name: '에테르넬 메이지글러브' } : eq
+    );
+    const swapped5eTotals = evaluateTotalSetStats(swapped5e2aList);
+    // 에테 6셋: 올50, 공200, 보45, 방무 [20]
+    // 아케인 2셋: 공30, 보10 (아케인 3, 4, 5셋 효과 전부 상실! 아케인 방무 10%도 상실!)
+    // 총합: mainStat = 50 (아케인 4셋 올50 상실), atk = 200 + 30 = 230, bossDmg = 45 + 10 = 55, 방무 [20]
+    assert.equal(swapped5eTotals.mainStat, 50);
+    assert.equal(swapped5eTotals.atk, 230);
+    assert.equal(swapped5eTotals.bossDmg, 55);
+    assert.equal(swapped5eTotals.ignoreDefList.length, 1);
+    assert.deepEqual(swapped5eTotals.ignoreDefList, [20]);
+});
