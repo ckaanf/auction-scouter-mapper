@@ -530,21 +530,64 @@
         return stats;
     }
 
+    const SLOT_NORMALIZATION_MAP = {
+        "배지": "배지",
+        "뱃지": "배지",
+        "기계 심장": "기계 심장",
+        "기계심장": "기계 심장",
+        "심장": "기계 심장",
+        "하트": "기계 심장",
+        "포켓": "포켓 아이템",
+        "포켓 아이템": "포켓 아이템",
+        "어깨": "어깨장식",
+        "어깨장식": "어깨장식",
+        "얼장": "얼굴장식",
+        "얼굴장식": "얼굴장식",
+        "눈장식": "눈장식",
+        "귀걸이": "귀고리",
+        "귀고리": "귀고리",
+        "모자": "모자",
+        "상의": "상의",
+        "하의": "하의",
+        "한벌옷": "상의",
+        "신발": "신발",
+        "장갑": "장갑",
+        "망토": "망토",
+        "벨트": "벨트",
+        "훈장": "훈장",
+        "무기": "무기",
+        "엠블렘": "엠블렘"
+    };
+
+    function normalizeSlotName(str) {
+        if (!str) return "";
+        const s = String(str).trim();
+        if (s.startsWith("펜던트")) return "펜던트";
+        if (s.startsWith("반지")) return "반지";
+        if (SLOT_NORMALIZATION_MAP[s]) return SLOT_NORMALIZATION_MAP[s];
+        if (s.includes("보조무기") || s.includes("방패") || s.includes("포스실드") || s.includes("소울링") || s.includes("블레이드") || s.includes("마도서")) {
+            return "보조무기";
+        }
+        return s;
+    }
+
     /**
      * 비교 대상 슬롯의 현재 장착 장비 찾기
      * - 펜던트(펜던트/펜던트1/펜던트2) 및 반지(반지1~4) 다중 슬롯은
      *   동일 이름 매칭 우선 -> 가장 전투력이 낮은 슬롯과 스마트 비교
+     * - 배지/뱃지, 기계심장/하트, 포켓 등 명칭 불일치를 SLOT_NORMALIZATION_MAP으로 100% 정규화 매칭
      */
     function findComparableEquippedItem(newItem, userEquipData, mainKey = "int", subKey = "luk", charLevel = 285) {
         if (!Array.isArray(userEquipData) || userEquipData.length === 0 || !newItem) return null;
 
         const slot = newItem.slot || "";
         const part = newItem.part || "";
+        const normNewSlot = normalizeSlotName(slot || part);
 
         // 1. 펜던트 다중 슬롯 스마트 비교 ("펜던트", "펜던트1", "펜던트2")
-        if (part === "펜던트" || slot.startsWith("펜던트")) {
+        if (normNewSlot === "펜던트") {
             const pendants = userEquipData.filter(
-                eq => eq && eq.name && (eq.slot === "펜던트" || eq.slot === "펜던트1" || eq.slot === "펜던트2")
+                eq => eq && eq.name && normalizeSlotName(eq.slot || eq.part) === "펜던트"
             );
             if (pendants.length === 0) return null;
             const cleanNewName = (newItem.name || "").replace("피어스 ", "").trim();
@@ -559,9 +602,9 @@
         }
 
         // 2. 반지 다중 슬롯 스마트 비교 ("반지", "반지1"~"반지4")
-        if (part === "반지" || slot.startsWith("반지")) {
+        if (normNewSlot === "반지") {
             const rings = userEquipData.filter(
-                eq => eq && eq.name && /^반지[1-4]?$/.test(eq.slot)
+                eq => eq && eq.name && normalizeSlotName(eq.slot || eq.part) === "반지"
             );
             if (rings.length === 0) return null;
             const sameRing = rings.find(eq => eq.name === newItem.name);
@@ -577,11 +620,13 @@
             })[0];
         }
 
-        // 3. 단일 슬롯 정확히 일치하거나 동일 part 매칭
-        const exactMatch = userEquipData.find(eq => eq && eq.name && eq.slot === slot);
-        if (exactMatch) return exactMatch;
+        // 3. 단일 슬롯 정규화 매칭 (배지/뱃지, 기계 심장/하트, 포켓 등 완벽 호환)
+        const exactNormMatch = userEquipData.find(
+            eq => eq && eq.name && normalizeSlotName(eq.slot || eq.part) === normNewSlot
+        );
+        if (exactNormMatch) return exactNormMatch;
 
-        return userEquipData.find(eq => eq && eq.name && eq.part === part) || null;
+        return userEquipData.find(eq => eq && eq.name && (eq.slot === slot || eq.part === part)) || null;
     }
 
     /**
@@ -914,6 +959,7 @@
         arcaneBaseEok: 0.5,           // 아케인 방어구 노작가 (억)
         pitchedBaseEok: 12.0,         // 일반 칠흑(안대/몽벨/루컨/마도서) 노작가 (억)
         highPitchedBaseEok: 25.0,     // 상위 칠흑(거공/고근/커포) 노작가 (억)
+        brillianceBaseEok: 70.0,      // 광휘의 보스(근속/죽맹/악몽/원죄/핏빛) 노작가 (억)
         potCostWeightPct: 100,        // 잠재 직작 비용 반영률 (%)
         riskMultiplier: 1.0,          // 불운 리스크 할증 배율 (기본 1.0배)
         usedCutDiscountPct: 15,       // 중고 가횟(5~7회) 감가율 (%)
@@ -923,8 +969,9 @@
 
     /**
      * [Feature 3] 직작 원가 대비 경매장 매물 기댓값(Craft vs Buy) 정밀 산출 엔진
+     * - 광휘의 보스 장신구, 익셉셔널 강화 칠흑, 기계 심장 등 전 품목 가치평가 완비
      * - 배지 표기: "🟢 기댓값 X억" (기댓값에 근사하거나 작으면 🟢, 약간 높으면 🟡, 크게 높으면 🔴)
-     * - 상세 보기 토글용 공정별(노작/스타포스/잠재/작·추옵/가횟) 상세 설명 배열(detailItems) 반환
+     * - 상세 보기 토글용 공정별(노작/스타포스/잠재/작·추옵/익셉셔널/가횟) 상세 설명 배열(detailItems) 반환
      */
     function evaluateCraftVsBuy(auctionItem, mappedItem, customConfig = null) {
         if (!mappedItem) return { isEvaluated: false };
@@ -945,41 +992,57 @@
         const star = Number(mappedItem.starforce || 0);
         const potGrade = mappedItem.potential_grade || "";
         const addGrade = mappedItem.additional_potential_grade || "";
+        const name = String(mappedItem.name || "");
+        const slot = String(mappedItem.slot || "");
+        const reqLv = Number(mappedItem.totalOption?.base_equipment_level || 200);
 
         const itemKey = String(auctionItem?.tradeSn || `${mappedItem.name}_${star}_${potGrade}`);
         const customOverrideEok = Number(cfg.customItemOverrides?.[itemKey] || 0);
 
-        // 0성 노작/토드용 재료 매물(스타포스 12성 미만 & 레전드리 아님)은 커스텀 오버라이드가 없는 한 생략
-        if (priceEok <= 0 || (customOverrideEok <= 0 && star < 12 && potGrade !== "레전드리" && addGrade !== "레전드리")) {
+        const isBrilliance = SET_ITEM_MEMBERS["광휘의 보스 세트"].includes(name);
+        const isPitched = SET_ITEM_MEMBERS["칠흑의 보스 세트"].includes(name);
+        const hasExUpgrade = Number(mappedItem.exceptionalOption?.exceptional_upgrade || (mappedItem.hasExceptional ? 1 : 0)) > 0;
+        const isHeart = slot === "기계 심장" || name.includes("하트") || name.includes("언더컨트롤");
+
+        // 0성 노작/토드용 재료 매물(스타포스 12성 미만 & 레전드리 아님)은 커스텀 오버라이드나 엔드급 보스 장신구/익셉/하트가 아닌 한 생략
+        if (priceEok <= 0 || (customOverrideEok <= 0 && star < 12 && potGrade !== "레전드리" && addGrade !== "레전드리" && !isBrilliance && !isPitched && !hasExUpgrade && !isHeart)) {
             return { isEvaluated: false, priceEok, itemKey };
         }
-
-        const name = String(mappedItem.name || "");
-        const slot = String(mappedItem.slot || "");
-        const reqLv = Number(mappedItem.totalOption?.base_equipment_level || 200);
 
         // 1. 아이템별 정밀 노작 기본가 (C_base, 억 단위)
         const eternalArmorBase = Number(cfg.eternalBaseEok ?? 7.0);
         const arcaneArmorBase = Number(cfg.arcaneBaseEok ?? 0.5);
         const pitchedNormalBase = Number(cfg.pitchedBaseEok ?? 12.0);
         const pitchedHighBase = Number(cfg.highPitchedBaseEok ?? 25.0);
+        const brillianceBase = Number(cfg.brillianceBaseEok ?? 70.0);
 
         let baseCost = arcaneArmorBase;
         let baseDesc = "일반 노작";
-        if (name.includes("에테르넬")) {
+        if (isBrilliance) {
+            if (name === "불멸의 유산") {
+                baseCost = brillianceBase * 0.4;
+                baseDesc = "광휘(훈장) 노작";
+            } else {
+                baseCost = brillianceBase;
+                baseDesc = "광휘의 보스 장신구 노작";
+            }
+        } else if (name.includes("에테르넬")) {
             const is3Set = ["모자", "상의", "하의"].includes(slot);
             baseCost = is3Set ? eternalArmorBase : eternalArmorBase * 3.5;
             baseDesc = is3Set ? "에테르넬 방어구 노작" : "에테르넬 특수부위 노작";
         } else if (name.includes("아케인셰이드")) {
             baseCost = slot === "무기" ? Math.max(1.5, arcaneArmorBase * 3) : arcaneArmorBase;
             baseDesc = slot === "무기" ? "아케인 무기 노작" : "아케인 방어구 노작";
-        } else if (SET_ITEM_MEMBERS["칠흑의 보스 세트"].includes(name)) {
+        } else if (isPitched) {
             if (name === "커맨더 포스 이어링") {
                 baseCost = pitchedHighBase * 1.4;
                 baseDesc = "칠흑(커포) 노작";
             } else if (name === "거대한 공포" || name === "고통의 근원") {
                 baseCost = pitchedHighBase;
                 baseDesc = "상위 칠흑(거공/고근) 노작";
+            } else if (name === "컴플리트 언더컨트롤") {
+                baseCost = pitchedNormalBase * 1.5;
+                baseDesc = "칠흑 하트(컴언컨) 노작";
             } else {
                 baseCost = pitchedNormalBase;
                 baseDesc = "일반 칠흑 노작";
@@ -987,6 +1050,14 @@
         } else if (SET_ITEM_MEMBERS["여명의 보스 세트"].includes(name)) {
             baseCost = (name === "데이브레이크 펜던트" || name === "여명의 가디언 엔젤 링") ? 1.5 : 0.5;
             baseDesc = "여명 보스 장신구 노작";
+        } else if (isHeart) {
+            if (name.includes("페어리") || name.includes("리퀴드메탈")) {
+                baseCost = 15.0;
+                baseDesc = "영구 교불제 하트 노작";
+            } else {
+                baseCost = 3.0;
+                baseDesc = "기계 심장 노작";
+            }
         } else {
             baseCost = 0.3;
             baseDesc = "기본 장신구/방어구 노작";
@@ -994,7 +1065,7 @@
 
         // 2. 스타포스 기댓값 = 순수 강화 메소(레벨제 비례) + 스페어 파괴 비용(평균 파괴수 * 노작가)
         let lvScale = 1.0;
-        if (reqLv >= 250 || name.includes("에테르넬")) lvScale = 1.95;
+        if (reqLv >= 250 || name.includes("에테르넬") || isBrilliance) lvScale = 1.95;
         else if (reqLv >= 200) lvScale = 1.0;
         else if (reqLv >= 160) lvScale = 0.62;
         else lvScale = 0.45;
@@ -1088,7 +1159,7 @@
         const potWeight = Math.max(0, Number(cfg.potCostWeightPct ?? 100)) / 100.0;
         const potCost = (gradeUpCost + optRollCost + addPotCost) * potWeight * riskMult;
 
-        // 4. 주문서 작(etcOption 프악공/놀긍혼) 및 고추옵(addOption) 가치 역산
+        // 4. 주문서 작(etcOption 프악공/놀긍혼/매지컬) 및 고추옵(addOption) 가치 역산
         let scrollCost = 0;
         let flameCost = 0;
         const etc = mappedItem.etcOption || {};
@@ -1097,13 +1168,16 @@
         const etcAtk = Math.max(Number(etc.attack_power || 0), Number(etc.magic_power || 0));
 
         let scrollDesc = scrollUpgrades > 0 ? `${scrollUpgrades}작 (공/마 +${etcAtk})` : "주문서 작 없음";
-        if (!["무기", "보조무기", "엠블렘", "장갑"].includes(slot) && scrollUpgrades > 0 && etcAtk >= scrollUpgrades * 3.8) {
+        if (isHeart && scrollUpgrades > 0 && etcAtk >= scrollUpgrades * 3.5) {
+            scrollCost = Math.round(scrollUpgrades * 1.8 * 10) / 10;
+            scrollDesc = `매지컬/프펫공 ${scrollUpgrades}작 (공/마 +${etcAtk})`;
+        } else if (!["무기", "보조무기", "엠블렘", "장갑"].includes(slot) && scrollUpgrades > 0 && etcAtk >= scrollUpgrades * 3.8) {
             scrollCost = Math.round(scrollUpgrades * 1.4 * 10) / 10;
             scrollDesc = `프악공/고공마 ${scrollUpgrades}작 (+${etcAtk})`;
         }
 
         let flameScore = 0;
-        if (slot !== "무기") {
+        if (slot !== "무기" && !isHeart) {
             const maxAddStat = Math.max(
                 Number(add.str || 0),
                 Number(add.dex || 0),
@@ -1125,12 +1199,25 @@
         }
         const scrollFlameCost = scrollCost + flameCost;
 
-        const rawCraftCostEok = baseCost + starCost + potCost + scrollFlameCost;
+        // 5. 익셉셔널 강화(Exceptional Upgrade) 가치 역산
+        let exceptionalCost = 0;
+        const exCount = Number(mappedItem.exceptionalOption?.exceptional_upgrade || (mappedItem.hasExceptional ? 1 : 0));
+        if (exCount > 0) {
+            exceptionalCost = exCount * 18.0; // 익셉셔널 파츠 1회당 약 18억 가치 반영
+        }
 
-        // 5. 가위 사용 가능 횟수(가횟) 감가 반영
+        const rawCraftCostEok = baseCost + starCost + potCost + scrollFlameCost + exceptionalCost;
+
+        // 6. 가위 사용 가능 횟수(가횟) 감가 반영
         const rawCut = Number(auctionItem?.toolTip?.upgradeInfo?.cuttableCount ?? mappedItem.cuttable_count ?? 255);
         const usedDiscRatio = Math.min(0.8, Math.max(0, Number(cfg.usedCutDiscountPct ?? 15) / 100.0));
         let cutFactor = 1.0;
+        if (rawCut >= 0 && rawCut <= 20) {
+            if (rawCut >= 8) cutFactor = 1.0;
+            else if (rawCut >= 5) cutFactor = 1.0 - usedDiscRatio;
+            else if (rawCut >= 3) cutFactor = Math.max(0.4, 1.0 - usedDiscRatio * 1.65);
+            else cutFactor = Math.max(0.35, 1.0 - usedDiscRatio * 2.3);
+        }
         if (rawCut >= 0 && rawCut <= 20) {
             if (rawCut >= 8) cutFactor = 1.0;
             else if (rawCut >= 5) cutFactor = 1.0 - usedDiscRatio;
@@ -1153,6 +1240,7 @@
             `잠${Math.round(potCost)}`
         ];
         if (scrollFlameCost >= 1) breakdownParts.push(`작추${Math.round(scrollFlameCost)}`);
+        if (exceptionalCost >= 1) breakdownParts.push(`익셉${Math.round(exceptionalCost)}`);
         const breakdownStr = isCustomOverridden ? "사용자 지정" : breakdownParts.join("·");
 
         // 상세 보기 토글용 공정별 설명 리스트
@@ -1178,6 +1266,14 @@
                 desc: `${scrollDesc}${flameScore > 0 ? ` · 추옵 ${flameScore}급` : ""}`
             }
         ];
+
+        if (exceptionalCost > 0) {
+            detailItems.push({
+                label: "익셉셔널 강화",
+                value: `${exceptionalCost}억`,
+                desc: `익셉셔널 강화 ${exCount}회 적용 (회당 약 18억 가치)`
+            });
+        }
 
         if (rawCut >= 0 && rawCut <= 20) {
             detailItems.push({

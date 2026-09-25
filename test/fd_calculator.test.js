@@ -379,3 +379,105 @@ test('6. 직작 기댓값(evaluateCraftVsBuy) 및 잠재능력 유효 요약(sum
     assert.equal(pinpointOverrideEval.grade, 'GOOD');
     assert.ok(pinpointOverrideEval.badgeText.includes('사용자 지정'));
 });
+
+test('7. [0순위 신뢰성 보장] 광휘의 보스 세트 6종, 슬롯 정규화(뱃지/하트), 익셉셔널 강화 및 특수 보조무기 검증', () => {
+    const {
+        evaluateTotalSetStats,
+        findComparableEquippedItem,
+        evaluateCraftVsBuy
+    } = require('../src/fd_calculator.js');
+    const { mapToCalcFormat } = require('../src/mapper.js');
+
+    // 7-1. 광휘의 보스 세트 6종 전수 세트 효과 발동 검증
+    const brillianceEquips = [
+        { name: '근원의 속삭임', slot: '반지1' },
+        { name: '죽음의 맹세', slot: '펜던트1' },
+        { name: '황홀한 악몽', slot: '얼굴장식' },
+        { name: '오만의 원죄', slot: '눈장식' },
+        { name: '굶주리는 핏빛 원혼', slot: '귀고리' },
+        { name: '불멸의 유산', slot: '훈장' }
+    ];
+    const brillianceStats = evaluateTotalSetStats(brillianceEquips);
+    // 6셋 효과 누적: 올스탯 100, 공마 100, 보공 30%, 크뎀 12.5%, 방무 15%
+    assert.equal(brillianceStats.atk, 100);
+    assert.equal(brillianceStats.bossDmg, 30);
+    assert.equal(brillianceStats.criDmg, 12.5);
+    assert.ok(brillianceStats.ignoreDefList.includes(15));
+
+    // 7-2. 슬롯 정규화(SLOT_NORMALIZATION_MAP): 명칭 불일치(뱃지/배지, 기계심장/하트) 매칭 방어 검증
+    const userEquips = [
+        { name: '크리스탈 웬투스 뱃지', slot: '배지', part: '배지' },
+        { name: '페어리 하트', slot: '하트', part: '기계 심장' },
+        { name: '칠요의 몬스터파커', slot: '훈장', part: '훈장' }
+    ];
+
+    // 새 아이템이 '창세의 뱃지'(slot: '뱃지')일 때 기존 '크리스탈 웬투스 뱃지'(slot: '배지')와 정확히 매칭되어야 함
+    const newBadge = { name: '창세의 뱃지', slot: '뱃지', part: '뱃지' };
+    const matchedBadge = findComparableEquippedItem(newBadge, userEquips);
+    assert.ok(matchedBadge);
+    assert.equal(matchedBadge.name, '크리스탈 웬투스 뱃지');
+
+    // 새 아이템이 '컴플리트 언더컨트롤'(slot: '기계 심장')일 때 기존 '페어리 하트'(slot: '하트')와 정확히 매칭되어야 함
+    const newHeart = { name: '컴플리트 언더컨트롤', slot: '기계 심장', part: '기계 심장' };
+    const matchedHeart = findComparableEquippedItem(newHeart, userEquips);
+    assert.ok(matchedHeart);
+    assert.equal(matchedHeart.name, '페어리 하트');
+
+    // 7-3. 광휘의 보스 장신구(250제, 근원의 속삭임 22성) 고가치 기댓값 산출 검증
+    const whisperRing = {
+        name: '근원의 속삭임',
+        slot: '반지',
+        starforce: '22',
+        potential_grade: '레전드리',
+        potential_option_1: ['LUK : +12%', 'LUK : +9%', '올스탯 : +9%'],
+        additional_potential_grade: '에픽',
+        totalOption: { base_equipment_level: 250 }
+    };
+    const ringEval = evaluateCraftVsBuy({ price: 180000000000 }, whisperRing); // 1800억 매물
+    assert.equal(ringEval.isEvaluated, true);
+    // 광휘 노작(기본 70억) 및 250제 스타포스 비용(순수 171억 + 스페어 2.3개 161억) 반영으로 기댓값이 약 450~500억 수준으로 정확히 역산되어야 함
+    assert.ok(ringEval.fairPriceEok >= 400);
+    assert.ok(ringEval.detailItems.some(d => d.desc.includes('광휘의 보스')));
+
+    // 7-4. 익셉셔널 강화 칠흑 장신구(몽환의 벨트 + 익셉셔널 1회) 가치 반영 검증
+    const exceptionalBelt = {
+        name: '몽환의 벨트',
+        slot: '벨트',
+        starforce: '22',
+        potential_grade: '레전드리',
+        potential_option_1: ['STR : +12%', 'STR : +9%', '올스탯 : +9%'],
+        additional_potential_grade: '에픽',
+        hasExceptional: true,
+        exceptionalOption: { exceptional_upgrade: 1 },
+        totalOption: { base_equipment_level: 200 }
+    };
+    const beltEval = evaluateCraftVsBuy({ price: 120000000000 }, exceptionalBelt);
+    assert.equal(beltEval.isEvaluated, true);
+    assert.ok(beltEval.breakdownStr.includes('익셉18'));
+    assert.ok(beltEval.detailItems.some(d => d.label === '익셉셔널 강화' && d.value === '18억'));
+
+    // 7-5. 전 직업 특수 보조무기(렌의 '류소', 라라의 '노리개', 카인의 '웨폰 벨트') 매핑 검증
+    const lenSecondary = {
+        toolTip: {
+            itemName: '검은 류소',
+            categories: ['보조무기', '류소'],
+            stat: { str: '10', dex: '10', pad: '5' },
+            reqJob: '전사'
+        }
+    };
+    const mappedLen = mapToCalcFormat(lenSecondary);
+    assert.equal(mappedLen.slot, '보조무기');
+    assert.equal(mappedLen.class_group, '전사');
+
+    const laraSecondary = {
+        toolTip: {
+            itemName: '선인 노리개',
+            categories: ['보조무기', '노리개'],
+            stat: { int: '10', luk: '10', mad: '5' },
+            reqJob: '마법사'
+        }
+    };
+    const mappedLara = mapToCalcFormat(laraSecondary);
+    assert.equal(mappedLara.slot, '보조무기');
+    assert.equal(mappedLara.class_group, '마법사');
+});
