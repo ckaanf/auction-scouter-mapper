@@ -7,14 +7,12 @@ script.onload = function () {
 };
 (document.head || document.documentElement).appendChild(script);
 
-// 환산 계산 가능한 장비 슬롯 화이트리스트 정의
-const VALID_SLOTS = [
-    "반지", "반지1", "반지2", "반지3", "반지4",
-    "펜던트", "펜던트1", "펜던트2",
-    "무기", "보조무기", "포스실드", "엠블렘", "기계 심장", "체스피스",
-    "벨트", "모자", "얼굴장식", "눈장식",
-    "상의", "하의", "신발", "귀고리",
-    "어깨장식", "장갑", "망토", "배지", "훈장", "포켓 아이템"
+// 환산 계산 가능한 장비 슬롯 화이트리스트 키워드 정의 (광휘의 보스, 뱃지/배지, 훈장, 기계 심장, 전 직업 특수 보조무기 전수 지원)
+const VALID_SLOT_KEYWORDS = [
+    "반지", "펜던트", "무기", "보조무기", "포스실드", "엠블렘", "파워소스", "기계 심장", "기계심장", "심장", "하트", "체스피스",
+    "벨트", "모자", "얼굴장식", "눈장식", "상의", "하의", "한벌옷", "신발", "귀고리", "귀걸이",
+    "어깨장식", "견장", "장갑", "망토", "배지", "뱃지", "훈장", "포켓", "방패", "블레이드", "소울링",
+    "선추", "노리개", "유물", "화약통", "조준기", "무기 전송장치", "컨트롤러", "마도서", "오브", "마법화살", "카드", "여우구슬", "웨폰 벨트", "류소", "방울"
 ];
 
 // 안전한 ID 문자열 변환 함수
@@ -33,13 +31,14 @@ window.addEventListener('message', (event) => {
 
         const filteredItems = newData.items.filter(newItem => {
             const t = newItem.toolTip;
-            if (!t || !t.categories) return false;
+            if (!t || !Array.isArray(t.categories) || t.categories.length === 0) return false;
+            const isCash = newItem.isCash === true;
+            if (isCash) return false;
 
-            const part = t.categories[0] || "";
-            const slot = t.categories[1] || "";
-            const isCash = newItem.isCash;
-            
-            return !isCash && (VALID_SLOTS.includes(slot) || VALID_SLOTS.includes(part));
+            return t.categories.some(cat => {
+                const s = String(cat).trim();
+                return VALID_SLOT_KEYWORDS.some(kw => s.includes(kw));
+            });
         });
 
         chrome.storage.local.get(['auctionWishlist'], (result) => {
