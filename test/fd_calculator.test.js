@@ -261,32 +261,16 @@ test('4. 다중 슬롯(펜던트/반지) 스마트 비교 및 시드링 보호/1
     assert.equal(fdRor4.oldItemName, '리스트레인트 링 3레벨');
     assert.match(fdRor4.seedRingNotice, /시드링 액티브 3레벨 ➔ 4레벨/);
 
-    // 4-6. 5레벨 및 6레벨 시드링 승급(리레4 -> 리레5, 리레5 -> 리레6) 최종뎀 산출 및 안내 태그 검증
+    // 4-6. 동일 시드링 매물 찜 시: 불필요한 안내 태그는 일체 노출되지 않고(null), 최종뎀 변동 0%로 스탯 왜곡만 안전 방어됨을 검증
     const charContextWithRor4 = {
         ...charContext,
         userEquipData: equippedList.map(eq => eq.slot === '반지1' ? { ...eq, name: '리스트레인트 링 4레벨' } : eq)
     };
-    const newRor5 = { slot: '반지', part: '반지', name: '리스트레인트 링 5레벨' };
-    const fdRor5 = calculateItemFdIncrease(newRor5, charContextWithRor4);
-    assert.equal(fdRor5.isSeedRing, true);
-    assert.equal(fdRor5.eff, 2.30); // 리레 4->5 벤치마크 2.30%
-    assert.match(fdRor5.seedRingNotice, /시드링 액티브 4레벨 ➔ 5레벨/);
+    const sameRor4 = calculateItemFdIncrease(newRor4, charContextWithRor4);
+    assert.equal(sameRor4.eff, 0.0);
+    assert.equal(sameRor4.seedRingNotice, null); // 사용자 요청: 거슬리는 '동일 N레벨 시드링' 태그 완전 제거!
 
-    const charContextWithRor5 = {
-        ...charContext,
-        userEquipData: equippedList.map(eq => eq.slot === '반지1' ? { ...eq, name: '리스트레인트 링 5레벨' } : eq)
-    };
-    const newRor6 = { slot: '반지', part: '반지', name: '리스트레인트 링 6레벨' };
-    const fdRor6 = calculateItemFdIncrease(newRor6, charContextWithRor5);
-    assert.equal(fdRor6.isSeedRing, true);
-    assert.equal(fdRor6.eff, 2.10); // 리레 5->6 벤치마크 2.10%
-    assert.match(fdRor6.seedRingNotice, /시드링 액티브 5레벨 ➔ 6레벨/);
-
-    // 4-7. 동일 5레벨 / 6레벨 시드링 및 0레벨 방어 태그 검증
-    const sameRor5 = calculateItemFdIncrease(newRor5, charContextWithRor5);
-    assert.equal(sameRor5.eff, 0.0);
-    assert.equal(sameRor5.seedRingNotice, '동일 5레벨 시드링 (변동 없음)');
-
+    // 레벨 미표기 시드링 착용/찜 시에도 불필요한 태그 일체 노출 없이 0% 방어
     const unrankedOldRor = { slot: '반지1', part: '반지', name: '리스트레인트 링' };
     const unrankedNewRor = { slot: '반지', part: '반지', name: '리스트레인트 링' };
     const charContextUnranked = {
@@ -295,32 +279,24 @@ test('4. 다중 슬롯(펜던트/반지) 스마트 비교 및 시드링 보호/1
     };
     const fdUnranked = calculateItemFdIncrease(unrankedNewRor, charContextUnranked);
     assert.equal(fdUnranked.eff, 0.0);
-    assert.match(fdUnranked.seedRingNotice, /동일 계열 시드링 \(레벨 미인식/);
-    assert.doesNotMatch(fdUnranked.seedRingNotice, /0레벨/); // 0레벨 문구 절대 노출 금지 방어
+    assert.equal(fdUnranked.seedRingNotice, null);
 
-    // 4-8. 시드링 헬퍼 함수 유닛 테스트 (1~6레벨 및 다양한 표기법)
+    // 4-7. 경매장 거래 가능(1~4레벨) 시드링 헬퍼 함수 유닛 테스트
     assert.equal(isSeedRing('리스트레인트 링 4레벨'), true);
-    assert.equal(isSeedRing('컨티뉴어스 링 5레벨'), true);
-    assert.equal(isSeedRing('웨폰퍼프 링 6레벨'), true);
+    assert.equal(isSeedRing('컨티뉴어스 링 3레벨'), true);
+    assert.equal(isSeedRing('웨폰퍼프 - I 링 4레벨'), true);
     assert.equal(isSeedRing('거대한 공포'), false);
     assert.equal(getSeedRingFamily('웨폰퍼프 - I 링 4레벨'), '웨폰퍼프 - I');
     assert.equal(extractSeedRingLevel('리스트레인트 링 4레벨'), 4);
-    assert.equal(extractSeedRingLevel('컨티뉴어스 링 5레벨'), 5);
-    assert.equal(extractSeedRingLevel('웨폰퍼프 링 6레벨'), 6);
-    assert.equal(extractSeedRingLevel('리스트레인트 링 Lv.5'), 5);
-    assert.equal(extractSeedRingLevel('웨폰퍼프 - I 링 6'), 6);
-    assert.equal(extractSeedRingLevel('리스트레인트링5'), 5);
+    assert.equal(extractSeedRingLevel('컨티뉴어스 링 3레벨'), 3);
+    assert.equal(extractSeedRingLevel('리스트레인트 링 Lv.4'), 4);
+    assert.equal(extractSeedRingLevel('웨폰퍼프 - I 링 4'), 4);
+    assert.equal(extractSeedRingLevel('리스트레인트링4'), 4);
     assert.equal(extractSeedRingLevel('단순 리스트레인트 링'), 0);
     assert.equal(getSeedRingFdEstimate('리스트레인트', 3, 4), 2.85);
-    assert.equal(getSeedRingFdEstimate('리스트레인트', 4, 5), 2.30);
-    assert.equal(getSeedRingFdEstimate('리스트레인트', 5, 6), 2.10);
-    assert.equal(getSeedRingFdEstimate('리스트레인트', 4, 6), 4.40);
-    assert.equal(getSeedRingFdEstimate('컨티뉴어스', 4, 5), 2.10);
-    assert.equal(getSeedRingFdEstimate('컨티뉴어스', 5, 6), 1.90);
-    assert.equal(getSeedRingFdEstimate('웨폰퍼프', 4, 5), 1.90);
-    assert.equal(getSeedRingFdEstimate('웨폰퍼프', 5, 6), 1.70);
-    assert.equal(getSeedRingFdEstimate('리스크테이커', 4, 5), 1.70);
-    assert.equal(getSeedRingFdEstimate('리스크테이커', 5, 6), 1.50);
+    assert.equal(getSeedRingFdEstimate('컨티뉴어스', 3, 4), 2.60);
+    assert.equal(getSeedRingFdEstimate('웨폰퍼프', 3, 4), 2.30);
+    assert.equal(getSeedRingFdEstimate('리스크테이커', 3, 4), 2.10);
 });
 
 test('5. 무기 소울 옵션 및 보조무기 슬롯 매핑, 비정상 입력(Null/빈 슬롯) 방어 검증', () => {
