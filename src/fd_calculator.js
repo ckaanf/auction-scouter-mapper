@@ -581,15 +581,51 @@
 
     function extractSeedRingLevel(name) {
         if (!name) return 0;
-        const match = String(name).match(/([1-4])\s*레벨/);
-        return match ? parseInt(match[1], 10) : 0;
+        const s = String(name).trim();
+        // 1. "N레벨" 패턴 (1~6레벨)
+        const mLevel = s.match(/([1-6])\s*레벨/);
+        if (mLevel) return parseInt(mLevel[1], 10);
+
+        // 2. "Lv.N" 또는 "Lv N" 패턴 (1~6)
+        const mLv = s.match(/(?:lv|level)\.?\s*([1-6])/i);
+        if (mLv) return parseInt(mLv[1], 10);
+
+        // 3. 이름 끝에 단독 숫자가 붙은 경우 (예: "리스트레인트 링 4", "리레 5", "리스트레인트링6")
+        const mEnd = s.match(/(?:링|\s)([1-6])\s*$/);
+        if (mEnd) return parseInt(mEnd[1], 10);
+
+        return 0;
     }
 
     const SEED_RING_BENCHMARK_FD = {
-        "리스트레인트": { "3->4": 2.85, "2->4": 5.20, "1->4": 7.20, "2->3": 2.35, "1->3": 4.35, "1->2": 2.00 },
-        "컨티뉴어스": { "3->4": 2.60, "2->4": 4.80, "1->4": 6.70, "2->3": 2.20, "1->3": 4.10, "1->2": 1.90 },
-        "웨폰퍼프": { "3->4": 2.30, "2->4": 4.30, "1->4": 6.10, "2->3": 2.00, "1->3": 3.80, "1->2": 1.80 },
-        "리스크테이커": { "3->4": 2.10, "2->4": 3.90, "1->4": 5.60, "2->3": 1.80, "1->3": 3.50, "1->2": 1.70 }
+        "리스트레인트": {
+            "3->4": 2.85, "4->5": 2.30, "5->6": 2.10,
+            "3->5": 5.15, "4->6": 4.40, "3->6": 7.25,
+            "2->4": 5.20, "2->5": 7.50, "2->6": 9.60,
+            "1->4": 7.20, "1->5": 9.50, "1->6": 11.60,
+            "2->3": 2.35, "1->3": 4.35, "1->2": 2.00
+        },
+        "컨티뉴어스": {
+            "3->4": 2.60, "4->5": 2.10, "5->6": 1.90,
+            "3->5": 4.70, "4->6": 4.00, "3->6": 6.60,
+            "2->4": 4.80, "2->5": 6.90, "2->6": 8.80,
+            "1->4": 6.70, "1->5": 8.80, "1->6": 10.70,
+            "2->3": 2.20, "1->3": 4.10, "1->2": 1.90
+        },
+        "웨폰퍼프": {
+            "3->4": 2.30, "4->5": 1.90, "5->6": 1.70,
+            "3->5": 4.20, "4->6": 3.60, "3->6": 5.90,
+            "2->4": 4.30, "2->5": 6.20, "2->6": 7.90,
+            "1->4": 6.10, "1->5": 8.00, "1->6": 9.70,
+            "2->3": 2.00, "1->3": 3.80, "1->2": 1.80
+        },
+        "리스크테이커": {
+            "3->4": 2.10, "4->5": 1.70, "5->6": 1.50,
+            "3->5": 3.80, "4->6": 3.20, "3->6": 5.30,
+            "2->4": 3.90, "2->5": 5.60, "2->6": 7.10,
+            "1->4": 5.60, "1->5": 7.30, "1->6": 8.80,
+            "2->3": 1.80, "1->3": 3.50, "1->2": 1.70
+        }
     };
 
     function getSeedRingFdEstimate(newFamily, oldLv, newLv) {
@@ -599,7 +635,12 @@
         if (baseKey && SEED_RING_BENCHMARK_FD[baseKey][key]) {
             return SEED_RING_BENCHMARK_FD[baseKey][key];
         }
+        if (key === "4->5") return 2.00;
+        if (key === "5->6") return 1.80;
+        if (key === "4->6") return 3.80;
         if (key === "3->4") return 1.80;
+        if (key === "3->5") return 3.80;
+        if (key === "3->6") return 5.60;
         if (key === "2->4") return 3.20;
         if (key === "1->4") return 4.50;
         return 1.20;
@@ -839,14 +880,19 @@
             const oldLv = isOldSeed ? extractSeedRingLevel(oldItem.name) : 0;
             const newFamily = getSeedRingFamily(mappedItem.name);
 
-            if (isOldSeed && newLv > oldLv) {
-                // 시드링 승급 (예: 리레3 -> 리레4)
+            if (isOldSeed && newLv > oldLv && oldLv > 0) {
+                // 시드링 승급 (예: 리레3 -> 리레4, 리레4 -> 리레5, 리레5 -> 리레6)
                 const benchmarkFd = getSeedRingFdEstimate(newFamily, oldLv, newLv);
                 fdPercent = benchmarkFd;
                 seedRingNotice = `시드링 액티브 ${oldLv}레벨 ➔ ${newLv}레벨 스킬 기여 추정치 (+${benchmarkFd}%)`;
-            } else if (isOldSeed && newLv === oldLv) {
+            } else if (isOldSeed && newLv > 0 && oldLv > 0 && newLv === oldLv) {
+                // 동일 레벨 시드링 (예: 4레벨 -> 4레벨, 5레벨 -> 5레벨, 6레벨 -> 6레벨)
                 fdPercent = 0.0;
                 seedRingNotice = `동일 ${newLv}레벨 시드링 (변동 없음)`;
+            } else if (isOldSeed && (newLv === 0 || oldLv === 0)) {
+                // 레벨 파싱 불가 시 '0레벨' 노출 방지 및 안전 안내
+                fdPercent = 0.0;
+                seedRingNotice = `동일 계열 시드링 (레벨 미인식, 인게임 수치 확인 필요)`;
             } else if (!isOldSeed && oldItem) {
                 // 일반 스탯 반지를 착용 중인 상태에서 시드링을 처음 장착하는 경우
                 seedRingNotice = `특수 액티브 반지 (극딜 시 액티브 버프 발동, 단순 기본 스탯 비교 주의)`;
