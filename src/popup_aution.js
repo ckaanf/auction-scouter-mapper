@@ -149,6 +149,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearAllBtn = document.getElementById('clearAllBtn');
     const clearCheckBtn = document.getElementById('clearCheckBtn');
     const clearClosedBtn = document.getElementById('clearClosedBtn');
+    const wishlistSearchInput = document.getElementById('wishlistSearchInput');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
     const calcCharSelect = document.getElementById('calcCharSelect');
     const auctionSortSelect = document.getElementById('auctionSortSelect');
     const chkOnlyOnSale = document.getElementById('chkOnlyOnSale');
@@ -172,6 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeCalcCharName = '';
     let currentSortMode = 'default';
     let onlyOnSaleFilter = false;
+    let searchQuery = '';
     let craftCostConfig = window.FDCalculator?.DEFAULT_CRAFT_CONFIG
         ? { ...window.FDCalculator.DEFAULT_CRAFT_CONFIG, customItemOverrides: {} }
         : {
@@ -313,6 +316,26 @@ document.addEventListener('DOMContentLoaded', () => {
         chkOnlyOnSale.addEventListener('change', () => {
             onlyOnSaleFilter = chkOnlyOnSale.checked;
             chrome.storage.local.set({ onlyOnSaleFilter });
+            renderItems();
+        });
+    }
+
+    if (wishlistSearchInput) {
+        wishlistSearchInput.addEventListener('input', () => {
+            searchQuery = (wishlistSearchInput.value || '').trim();
+            if (clearSearchBtn) {
+                clearSearchBtn.style.display = searchQuery ? 'block' : 'none';
+            }
+            renderItems();
+        });
+    }
+
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', () => {
+            if (wishlistSearchInput) wishlistSearchInput.value = '';
+            searchQuery = '';
+            clearSearchBtn.style.display = 'none';
+            if (wishlistSearchInput) wishlistSearchInput.focus();
             renderItems();
         });
     }
@@ -483,8 +506,24 @@ document.addEventListener('DOMContentLoaded', () => {
             displayList = preparedList.filter(({ item }) => !item.isClosed && !item.isUnwished);
         }
 
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            displayList = displayList.filter(({ item, mappedPreview }) => {
+                const name = (item.toolTip?.itemName || '').toLowerCase();
+                const slot = (item.toolTip?.itemPart || mappedPreview?.slot || '').toLowerCase();
+                const star = item.toolTip?.upgradeInfo?.starForce?.current ? `${item.toolTip.upgradeInfo.starForce.current}성` : '';
+                const potGradeMap = { 1: '레어', 2: '에픽', 3: '유니크', 4: '레전드리', 5: '초월' };
+                const potGrade = potGradeMap[item.toolTip?.upgradeInfo?.potential?.grade] || '';
+                const addPotGrade = potGradeMap[item.toolTip?.upgradeInfo?.additionalPotential?.grade] || '';
+
+                return name.includes(q) || slot.includes(q) || star.includes(q) || potGrade.includes(q) || addPotGrade.includes(q);
+            });
+        }
+
         if (displayList.length === 0) {
-            if (auctionItems.length > 0) {
+            if (searchQuery) {
+                itemList.innerHTML = `<div class="empty-msg">'${searchQuery}' 검색 결과가 없습니다.</div>`;
+            } else if (auctionItems.length > 0) {
                 itemList.innerHTML = '<div class="empty-msg">판매 중인 매물이 없습니다.<br>[판매중만] 체크를 해제하여 전체 매물을 확인하세요.</div>';
             } else {
                 itemList.innerHTML = '<div class="empty-msg">저장된 찜 목록이 없습니다.<br>메이플 경매장 찜 목록 페이지를 방문해주세요.</div>';
@@ -556,6 +595,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 additionalPotentialGrade.className = `rank-badge ${gradeInfo.class}`;
                 additionalPotentialGrade.textContent = gradeInfo.text;
                 headerDiv.appendChild(additionalPotentialGrade);
+            }
+
+            // 가위 사용 횟수(가횟) 배지
+            let itemCutCount = undefined;
+            if (craftEval && typeof craftEval.rawCut === 'number' && craftEval.rawCut >= 0 && craftEval.rawCut <= 20) {
+                itemCutCount = craftEval.rawCut;
+            } else if (item.toolTip?.tradeDesc && Array.isArray(item.toolTip.tradeDesc)) {
+                for (const desc of item.toolTip.tradeDesc) {
+                    const m = String(desc).match(/가위\s*사용\s*가능\s*횟수\s*:\s*(\d+)/);
+                    if (m) {
+                        itemCutCount = parseInt(m[1], 10);
+                        break;
+                    }
+                }
+            } else if (item.toolTip?.upgradeInfo?.cuttableCount !== undefined) {
+                const c = Number(item.toolTip.upgradeInfo.cuttableCount);
+                if (c >= 0 && c <= 20) itemCutCount = c;
+            }
+
+            if (typeof itemCutCount === 'number' && itemCutCount >= 0 && itemCutCount <= 10) {
+                const cutSpan = document.createElement('span');
+                cutSpan.className = 'cut-badge';
+                if (itemCutCount <= 2) {
+                    cutSpan.classList.add('cut-low');
+                }
+                cutSpan.textContent = `가횟 ${itemCutCount}`;
+                headerDiv.appendChild(cutSpan);
             }
 
             infoDiv.appendChild(headerDiv);

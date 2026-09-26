@@ -171,7 +171,7 @@ function mapToCalcFormat(auctionItem) {
         itemScore: "0",
         character_name: characterName,
         class_group: mappedClassGroup,
-        cuttable_count: "255",
+        cuttable_count: String(extractCuttableCount(auctionItem)),
         title: "",
         bookMark: true,
         isEquipped: false,
@@ -186,6 +186,25 @@ function mapToCalcFormat(auctionItem) {
     };
 }
 
+function extractCuttableCount(auctionItem) {
+    if (!auctionItem) return 255;
+    const t = auctionItem.toolTip || auctionItem;
+    const descs = Array.isArray(t?.tradeDesc) ? t.tradeDesc : [];
+    for (const d of descs) {
+        const m = String(d).match(/가위\s*사용\s*가능\s*횟수\s*:\s*(\d+)/);
+        if (m) {
+            return parseInt(m[1], 10);
+        }
+    }
+    if (t?.upgradeInfo?.cuttableCount !== undefined && t?.upgradeInfo?.cuttableCount !== null) {
+        return Number(t.upgradeInfo.cuttableCount);
+    }
+    if (auctionItem?.cuttable_count !== undefined && auctionItem?.cuttable_count !== null && auctionItem?.cuttable_count !== "255") {
+        return Number(auctionItem.cuttable_count);
+    }
+    return 255;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { mapToCalcFormat };
+    module.exports = { mapToCalcFormat, extractCuttableCount };
 }

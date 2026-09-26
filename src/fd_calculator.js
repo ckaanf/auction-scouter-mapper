@@ -1317,15 +1317,23 @@
         const rawCraftCostEok = baseCost + starCost + potCost + scrollFlameCost + exceptionalCost;
 
         // 6. 가위 사용 가능 횟수(가횟) 감가 반영
-        const rawCut = Number(auctionItem?.toolTip?.upgradeInfo?.cuttableCount ?? mappedItem.cuttable_count ?? 255);
+        let rawCut = 255;
+        const tradeDescs = Array.isArray(auctionItem?.toolTip?.tradeDesc) ? auctionItem.toolTip.tradeDesc : [];
+        for (const desc of tradeDescs) {
+            const m = String(desc).match(/가위\s*사용\s*가능\s*횟수\s*:\s*(\d+)/);
+            if (m) {
+                rawCut = parseInt(m[1], 10);
+                break;
+            }
+        }
+        if (rawCut === 255 && auctionItem?.toolTip?.upgradeInfo?.cuttableCount !== undefined) {
+            rawCut = Number(auctionItem.toolTip.upgradeInfo.cuttableCount);
+        } else if (rawCut === 255 && mappedItem?.cuttable_count !== undefined && mappedItem.cuttable_count !== "255") {
+            rawCut = Number(mappedItem.cuttable_count);
+        }
+
         const usedDiscRatio = Math.min(0.8, Math.max(0, Number(cfg.usedCutDiscountPct ?? 15) / 100.0));
         let cutFactor = 1.0;
-        if (rawCut >= 0 && rawCut <= 20) {
-            if (rawCut >= 8) cutFactor = 1.0;
-            else if (rawCut >= 5) cutFactor = 1.0 - usedDiscRatio;
-            else if (rawCut >= 3) cutFactor = Math.max(0.4, 1.0 - usedDiscRatio * 1.65);
-            else cutFactor = Math.max(0.35, 1.0 - usedDiscRatio * 2.3);
-        }
         if (rawCut >= 0 && rawCut <= 20) {
             if (rawCut >= 8) cutFactor = 1.0;
             else if (rawCut >= 5) cutFactor = 1.0 - usedDiscRatio;
@@ -1416,6 +1424,7 @@
             rawCraftCostEok: Math.round(rawCraftCostEok * 10) / 10,
             fairPriceEok,
             cutFactor,
+            rawCut,
             diffPct,
             grade,
             signalEmoji,

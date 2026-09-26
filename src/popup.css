@@ -303,6 +303,25 @@ imported-custom-checkbox {
     background-color: rgba(131, 173, 32, 0.1);
 }
 
+.cut-badge {
+    display: inline-flex;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-left: 4px;
+    background: #f1f3f5;
+    color: #495057;
+    border: 1px solid #ced4da;
+    vertical-align: middle;
+}
+
+.cut-badge.cut-low {
+    background: #fff5f5;
+    color: #e03131;
+    border-color: #ffc9c9;
+}
+
 /* ==========================================================================
    6. 버튼 및 기타 컴포넌트
    ========================================================================== */
@@ -875,6 +894,65 @@ body::-webkit-scrollbar,
     background: #fff4e6;
     border-color: #F68610;
     color: #d9480f;
+}
+
+.search-toolbar {
+    margin-bottom: 8px;
+}
+
+.search-input-wrap {
+    display: flex;
+    align-items: center;
+    position: relative;
+    background: #ffffff;
+    border: 1px solid #ded4c6;
+    border-radius: 6px;
+    padding: 0 8px;
+    transition: all 0.15s ease;
+}
+
+.search-input-wrap:focus-within {
+    border-color: #F68610;
+    box-shadow: 0 0 0 2px rgba(246, 134, 16, 0.12);
+}
+
+.search-icon {
+    width: 13px;
+    height: 13px;
+    color: #8c7b6e;
+    flex-shrink: 0;
+    margin-right: 6px;
+}
+
+.wishlist-search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 11px;
+    padding: 5px 0;
+    color: #2b2623;
+    background: transparent;
+    font-family: inherit;
+}
+
+.wishlist-search-input::placeholder {
+    color: #a89a8e;
+}
+
+.search-clear-btn {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 1px 4px;
+    border-radius: 50%;
+    line-height: 1;
+}
+
+.search-clear-btn:hover {
+    color: #333;
+    background: #eee;
 }
 
 .craft-config-panel {

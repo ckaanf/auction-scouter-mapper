@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { mapToCalcFormat } = require('../src/mapper.js');
+const { mapToCalcFormat, extractCuttableCount } = require('../src/mapper.js');
 const {
     parseCharacterStore,
     normalizeStatKeys,
@@ -13,6 +13,7 @@ const {
     evaluateHermiteSpline,
     invertHermiteSpline,
     calculateItemFdIncrease,
+    evaluateCraftVsBuy,
     formatSimulBookmarkName,
     buildSimulBookmarkEntry,
     isSeedRing,
@@ -590,4 +591,100 @@ test('8. [2026 메타 신뢰성] 3에4아 세트 전환 및 해방 제네시스 
     assert.equal(swapped5eTotals.bossDmg, 55);
     assert.equal(swapped5eTotals.ignoreDefList.length, 1);
     assert.deepEqual(swapped5eTotals.ignoreDefList, [20]);
+});
+
+test('9. [가위 사용 횟수(가횟) 감가 모델 및 넥슨 tradeDesc 파싱] 정밀 검증', () => {
+    // 9-1. mapper.extractCuttableCount 넥슨 실전 API 패킷 파싱 검증
+    const auctionWithTradeDesc5 = {
+        toolTip: {
+            tradeDesc: ['장착 시 교환 불가', '(가위 사용 가능 횟수 : 5 / 10)', '플래티넘 카르마의 가위를 사용하면 1회 교환이 가능하게 됩니다.']
+        }
+    };
+    assert.equal(extractCuttableCount(auctionWithTradeDesc5), 5);
+
+    const auctionWithTradeDesc0 = {
+        toolTip: {
+            tradeDesc: ['(가위 사용 가능 횟수 : 0 / 10)']
+        }
+    };
+    assert.equal(extractCuttableCount(auctionWithTradeDesc0), 0);
+
+    const auctionWithoutCut = {
+        toolTip: {
+            tradeDesc: ['교환 불가']
+        }
+    };
+    assert.equal(extractCuttableCount(auctionWithoutCut), 255);
+
+    const auctionFallbackCuttable = {
+        toolTip: {
+            upgradeInfo: { cuttableCount: 7 }
+        }
+    };
+    assert.equal(extractCuttableCount(auctionFallbackCuttable), 7);
+
+    // 9-2. evaluateCraftVsBuy 내 가횟 감가율(cutFactor) 정밀 검증
+    const baseTargetItem = {
+        name: '에테르넬 나이트햇',
+        slot: '모자',
+        starforce: 22,
+        potential_grade: '레전드리',
+        additional_potential_grade: '에픽',
+        totalOption: { base_equipment_level: 250 }
+    };
+    const cfg = {
+        useShiningStarforce: true,
+        useMiracleTime: true,
+        eternalBaseEok: 7.0,
+        potCostWeightPct: 100,
+        riskMultiplier: 1.0,
+        usedCutDiscountPct: 15,
+        goodDealThresholdPct: 12
+    };
+
+    // 9-2-A: 신품 매물 (가횟 10 / 10) -> cutFactor = 1.0 (감가 없음)
+    const auctionItemNew = {
+        price: 50000000000,
+        toolTip: { tradeDesc: ['(가위 사용 가능 횟수 : 10 / 10)'] }
+    };
+    const evalNew = evaluateCraftVsBuy(auctionItemNew, baseTargetItem, cfg);
+    assert.equal(evalNew.isEvaluated, true);
+    assert.equal(evalNew.rawCut, 10);
+    assert.equal(evalNew.cutFactor, 1.0);
+    assert.equal(evalNew.detailItems.some(d => d.label === '가위 횟수 보정' && d.value === '감가 없음'), true);
+
+    // 9-2-B: 가횟 5회 잔여 (중고) -> cutFactor = 1.0 - 0.15 = 0.85 (15% 감가)
+    const auctionItemCut5 = {
+        price: 50000000000,
+        toolTip: { tradeDesc: ['(가위 사용 가능 횟수 : 5 / 10)'] }
+    };
+    const evalCut5 = evaluateCraftVsBuy(auctionItemCut5, baseTargetItem, cfg);
+    assert.equal(evalCut5.rawCut, 5);
+    assert.equal(evalCut5.cutFactor, 0.85);
+    assert.equal(evalCut5.fairPriceEok, Math.round(evalNew.rawCraftCostEok * 0.85 * 10) / 10);
+    assert.equal(evalCut5.detailItems.some(d => d.label === '가위 횟수 보정' && d.value === '-15%'), true);
+
+    // 9-2-C: 가횟 3회 잔여 (낮은 가횟) -> cutFactor = 1.0 - 0.15 * 1.65 = 0.7525 (~25% 감가)
+    const auctionItemCut3 = {
+        price: 50000000000,
+        toolTip: { tradeDesc: ['(가위 사용 가능 횟수 : 3 / 10)'] }
+    };
+    const evalCut3 = evaluateCraftVsBuy(auctionItemCut3, baseTargetItem, cfg);
+    assert.equal(evalCut3.rawCut, 3);
+    assert.equal(evalCut3.cutFactor, 1.0 - 0.15 * 1.65);
+    assert.ok(Math.abs(evalCut3.fairPriceEok - evalNew.rawCraftCostEok * (1.0 - 0.15 * 1.65)) <= 0.15);
+
+    // 9-2-D: 가횟 1회 잔여 (막가횟) -> cutFactor = 1.0 - 0.15 * 2.3 = 0.655 (~35% 감가)
+    const auctionItemCut1 = {
+        price: 50000000000,
+        toolTip: { tradeDesc: ['(가위 사용 가능 횟수 : 1 / 10)'] }
+    };
+    const evalCut1 = evaluateCraftVsBuy(auctionItemCut1, baseTargetItem, cfg);
+    assert.equal(evalCut1.rawCut, 1);
+    assert.equal(evalCut1.cutFactor, 1.0 - 0.15 * 2.3);
+    assert.ok(Math.abs(evalCut1.fairPriceEok - evalNew.rawCraftCostEok * (1.0 - 0.15 * 2.3)) <= 0.15);
+    // 가횟 10 > 가횟 5 > 가횟 3 > 가횟 1 순으로 손익분기 기댓값이 확연히 감가됨을 검증
+    assert.ok(evalNew.fairPriceEok > evalCut5.fairPriceEok);
+    assert.ok(evalCut5.fairPriceEok > evalCut3.fairPriceEok);
+    assert.ok(evalCut3.fairPriceEok > evalCut1.fairPriceEok);
 });

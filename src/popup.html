@@ -72,6 +72,16 @@
             <button id="toggleCraftConfigBtn" class="craft-cfg-toggle-btn" title="직작 원가 및 손익분기 기댓값 설정 열기/닫기">원가설정</button>
         </div>
 
+        <div class="search-toolbar">
+            <div class="search-input-wrap">
+                <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd"/>
+                </svg>
+                <input type="text" id="wishlistSearchInput" class="wishlist-search-input" placeholder="아이템명, 부위(모자, 반지 등) 실시간 검색...">
+                <button id="clearSearchBtn" class="search-clear-btn" style="display: none;" title="검색어 지우기">✕</button>
+            </div>
+        </div>
+
         <!-- 접이식 직작 원가 / 손익분기 설정 대시보드 -->
         <div id="craftConfigPanel" class="craft-config-panel" style="display: none;">
             <div class="craft-config-header">
